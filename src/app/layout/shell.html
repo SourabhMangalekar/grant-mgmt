@@ -6,8 +6,9 @@
       <span class="logo"><mat-icon>bar_chart</mat-icon></span>
       <span class="brand-name">GrantHub</span>
     </div>
+    <span class="label-mono workspace">{{ affiliation() === 'granter' ? 'Funder workspace' : 'Grantee workspace' }}</span>
     <mat-nav-list>
-      @for (item of nav; track item.path) {
+      @for (item of nav(); track item.path) {
         <a mat-list-item [routerLink]="item.path" routerLinkActive #rla="routerLinkActive"
            [activated]="rla.isActive" (click)="isMobile() && drawer.close()">
           <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>

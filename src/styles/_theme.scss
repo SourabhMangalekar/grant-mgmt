@@ -21,6 +21,22 @@ html {
   ));
 }
 
+// Grantee palette — teal in place of the granter (funder) blue. Only the accent roles change; surfaces,
+// status colors and layout stay shared so both experiences read as one product.
+html.tenant-grantee {
+  @include mat.theme-overrides((
+    primary: #006a60,
+    on-primary: #ffffff,
+    primary-container: #9ef2e1,
+    on-primary-container: #00201c,
+    secondary-container: #cde8e1,
+    on-secondary-container: #051f1c,
+    tertiary: #8a5100,
+    tertiary-container: #ffdcbd,
+    on-tertiary-container: #2c1600,
+  ));
+}
+
 // Navy dark theme — the default look.
 html.dark-theme {
   color-scheme: dark;
@@ -44,5 +60,20 @@ html.dark-theme {
     outline-variant: #1f2c4a,
     secondary-container: #1e2c5c,
     on-secondary-container: #c9d6ff,
+  ));
+}
+
+// Grantee on the dark theme: same navy surfaces, teal accents.
+html.dark-theme.tenant-grantee {
+  @include mat.theme-overrides((
+    primary: #5ee6c4,
+    on-primary: #00382f,
+    primary-container: #0f3d36,
+    on-primary-container: #a8f3e2,
+    secondary-container: #123f38,
+    on-secondary-container: #b9efe3,
+    tertiary: #ffb870,
+    tertiary-container: #4a2c0c,
+    on-tertiary-container: #ffdcbd,
   ));
 }

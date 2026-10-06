@@ -73,7 +73,7 @@ export class Login {
     this.error.set(null);
     const v = this.form.getRawValue();
     this.auth.login({ ...v, tenantLogin: v.tenantLogin.trim().toLowerCase(), userLogin: v.userLogin.trim() }).subscribe({
-      next: u => this.router.navigateByUrl(u.approved ? this.returnUrl() || '/dashboard' : '/pending'),
+      next: u => this.router.navigateByUrl(u.approved ? this.returnUrl() || '/' : '/pending'),
       error: err => { this.error.set(authErrorMessage(err)); this.loading.set(false); },
     });
   }

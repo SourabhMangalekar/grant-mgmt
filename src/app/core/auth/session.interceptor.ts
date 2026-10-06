@@ -16,7 +16,8 @@ export const sessionInterceptor: HttpInterceptorFn = (req, next) => {
     : req;
 
   return next(authed).pipe(catchError((err: HttpErrorResponse) => {
-    if (err.status === 401 && id && !req.url.includes('/security/')) {
+    // Only IAM decides whether the session is dead; a 401 from another service (e.g. grant service) shouldn't log out.
+    if (err.status === 401 && id && req.url.startsWith(APP_CONFIG.iamBaseUrl) && !req.url.includes('/security/')) {
       store.clear();
       router.navigate(['/auth/login'], { queryParams: { returnUrl: router.url } });
     }

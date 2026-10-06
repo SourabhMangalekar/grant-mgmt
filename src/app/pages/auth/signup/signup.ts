@@ -155,7 +155,7 @@ export class Signup {
     const done$ = l.state === 'existing'
       ? this.auth.joinOrganisation(l.tenant.tenantLogin, req, password, this.preSession)
       : this.auth.createOrganisation(req, password, this.affiliation(), this.preSession);
-    this.run(done$, u => this.router.navigateByUrl(u.approved ? '/dashboard' : '/pending'));
+    this.run(done$, u => this.router.navigateByUrl(u.approved ? '/' : '/pending'));
   }
 
   protected back() {

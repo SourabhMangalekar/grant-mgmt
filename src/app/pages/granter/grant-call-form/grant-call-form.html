@@ -1,0 +1,182 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <a class="back-link" routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> Calls for proposals</a>
+      <h1>New call for proposals</h1>
+      <p>Invite grantees to apply for funding. Publish it to list it under their “Open calls”.</p>
+    </div>
+  </header>
+
+  @if (debug) {
+    <div class="auth-alert info" role="status"><mat-icon>bug_report</mat-icon> Debug mode: the form is prefilled with test data (environment.debugMode = 1).</div>
+  }
+  @if (error(); as e) {
+    <div class="auth-alert error" role="alert"><mat-icon>error</mat-icon> {{ e }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="save('OPEN')" novalidate>
+    <!-- 1. About the call -->
+    <section class="surface-card section">
+      <h2><span class="step">1</span> About the call</h2>
+      <mat-form-field appearance="outline">
+        <mat-label>Title</mat-label>
+        <input matInput formControlName="title" maxlength="250" placeholder="e.g. Foundational Literacy 2027">
+        @if (form.controls.title.hasError('required')) { <mat-error>Give the call a title</mat-error> }
+      </mat-form-field>
+      <div class="row-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Theme</mat-label>
+          <mat-select formControlName="theme">
+            @for (t of themes; track t) { <mat-option [value]="t">{{ t }}</mat-option> }
+          </mat-select>
+          @if (form.controls.theme.hasError('required')) { <mat-error>Choose a theme</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Call code (optional)</mat-label>
+          <input matInput formControlName="callCode" maxlength="60" placeholder="e.g. FLN-2027-01">
+          <mat-hint>Your own reference for this call.</mat-hint>
+        </mat-form-field>
+      </div>
+      <mat-form-field appearance="outline">
+        <mat-label>Description</mat-label>
+        <textarea matInput formControlName="description" rows="5" maxlength="2000"
+                  placeholder="What you want to fund, who should apply, and what a strong proposal looks like."></textarea>
+        <mat-hint align="end">{{ form.controls.description.value.length }} / 2000</mat-hint>
+        @if (form.controls.description.hasError('required')) { <mat-error>Describe the call</mat-error> }
+      </mat-form-field>
+    </section>
+
+    <!-- 2. Funding -->
+    <section class="surface-card section">
+      <h2><span class="step">2</span> Funding</h2>
+      <div class="row-3">
+        <mat-form-field appearance="outline">
+          <mat-label>Total envelope</mat-label>
+          <span matTextPrefix>₹&nbsp;</span>
+          <input matInput type="number" formControlName="envelope" min="1">
+          <mat-hint>Total money available across all awards.</mat-hint>
+          @if (form.controls.envelope.invalid) { <mat-error>Enter the total amount</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Minimum award</mat-label>
+          <span matTextPrefix>₹&nbsp;</span>
+          <input matInput type="number" formControlName="minAward" min="0">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Maximum award</mat-label>
+          <span matTextPrefix>₹&nbsp;</span>
+          <input matInput type="number" formControlName="maxAward" min="1">
+        </mat-form-field>
+      </div>
+      @if (form.hasError('minAboveMax')) { <p class="form-error">The minimum award is more than the maximum.</p> }
+      @if (form.hasError('maxAboveEnvelope')) { <p class="form-error">The maximum award is more than the total envelope.</p> }
+      @if (form.controls.envelope.value) {
+        <p class="muted">Envelope: {{ form.controls.envelope.value | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</p>
+      }
+
+      <div class="toggles">
+        <mat-slide-toggle formControlName="isCsrFunded">CSR funded</mat-slide-toggle>
+        <mat-slide-toggle formControlName="isForeignFunded">Foreign funded</mat-slide-toggle>
+      </div>
+      @if (isCsr()) {
+        <mat-form-field appearance="outline">
+          <mat-label>Schedule VII category</mat-label>
+          <mat-select formControlName="scheduleViiCode">
+            @for (s of scheduleVii; track s.code) { <mat-option [value]="s.code">{{ s.label }}</mat-option> }
+          </mat-select>
+          <mat-hint>CSR spend must fall under a Companies Act Schedule VII activity.</mat-hint>
+          @if (form.controls.scheduleViiCode.hasError('required')) { <mat-error>Choose the Schedule VII category</mat-error> }
+        </mat-form-field>
+      }
+    </section>
+
+    <!-- 3. Timeline & review -->
+    <section class="surface-card section">
+      <h2><span class="step">3</span> Timeline &amp; review</h2>
+      <div class="row-3">
+        <mat-form-field appearance="outline">
+          <mat-label>Opens on</mat-label>
+          <input matInput type="date" formControlName="opensAt">
+          @if (form.controls.opensAt.hasError('required')) { <mat-error>Choose an opening date</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Closes on</mat-label>
+          <input matInput type="date" formControlName="closesAt">
+          @if (form.controls.closesAt.hasError('required')) { <mat-error>Choose a closing date</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Reviewers per application</mat-label>
+          <input matInput type="number" formControlName="reviewersRequired" min="1" max="10">
+          @if (form.controls.reviewersRequired.invalid) { <mat-error>Between 1 and 10</mat-error> }
+        </mat-form-field>
+      </div>
+      @if (form.hasError('closesBeforeOpens')) { <p class="form-error">The call closes before it opens.</p> }
+    </section>
+
+    <!-- 4. What applicants submit -->
+    <section class="surface-card section">
+      <h2><span class="step">4</span> What applicants submit</h2>
+
+      <mat-form-field appearance="outline">
+        <mat-label>How applicants respond</mat-label>
+        <mat-select formControlName="responseFormat">
+          <mat-option value="QUESTIONS">Answer the questions below online</mat-option>
+          <mat-option value="PROPOSAL_UPLOAD">Upload a proposal document</mat-option>
+          <mat-option value="QUESTIONS_AND_UPLOAD">Answer questions and upload a proposal</mat-option>
+        </mat-select>
+        @if (form.controls.responseFormat.hasError('required')) { <mat-error>Choose how applicants respond</mat-error> }
+      </mat-form-field>
+
+      <h3 class="label-mono">Questions</h3>
+      @for (q of questions.controls; track q; let i = $index) {
+        <div class="question">
+          <mat-form-field appearance="outline">
+            <mat-label>Question {{ i + 1 }}</mat-label>
+            <input matInput [formControl]="q">
+            @if (q.hasError('required')) { <mat-error>Write the question or remove it</mat-error> }
+          </mat-form-field>
+          <button mat-icon-button type="button" (click)="removeQuestion(i)" [attr.aria-label]="'Remove question ' + (i + 1)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      }
+      <button mat-stroked-button type="button" (click)="addQuestion()"><mat-icon>add</mat-icon> Add question</button>
+
+      <div class="row-2 budget">
+        <mat-form-field appearance="outline">
+          <mat-label>Budget format</mat-label>
+          <mat-select formControlName="budgetFormat">
+            <mat-option value="LINE_ITEMS">Line items</mat-option>
+            <mat-option value="TEMPLATE_UPLOAD">Upload our template</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Budget period</mat-label>
+          <mat-select formControlName="budgetPeriod">
+            <mat-option value="YEARLY">Yearly</mat-option>
+            <mat-option value="QUARTERLY">Quarterly</mat-option>
+            <mat-option value="MONTHLY">Monthly</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <h3 class="label-mono">Required documents</h3>
+      <div class="docs">
+        @for (d of docs; track d.code) {
+          <mat-checkbox [checked]="hasDoc(d.code)" (change)="toggleDoc(d.code, $event.checked)">{{ d.label }}</mat-checkbox>
+        }
+      </div>
+    </section>
+
+    <div class="actions">
+      <a mat-button routerLink="/grant-calls" [class.disabled]="saving()">Cancel</a>
+      <span class="spacer"></span>
+      <button mat-stroked-button type="button" (click)="save('DRAFT')" [disabled]="saving()">
+        @if (saving() === 'DRAFT') { <mat-spinner diameter="18" /> } @else { Save draft }
+      </button>
+      <button mat-flat-button type="submit" [disabled]="saving()">
+        @if (saving() === 'OPEN') { <mat-spinner diameter="18" /> } @else { <ng-container><mat-icon>campaign</mat-icon> Publish</ng-container> }
+      </button>
+    </div>
+  </form>
+</div>

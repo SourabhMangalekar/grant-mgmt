@@ -36,3 +36,4 @@ mat-nav-list a { border-radius: var(--gm-radius-md); margin-bottom: var(--gm-spa
   border: 0; cursor: pointer;
 }
 .menu-user { display: flex; flex-direction: column; padding: var(--gm-space-2) var(--gm-space-4) var(--gm-space-3); }
+.workspace { display: block; padding: 0 var(--gm-space-3); margin: calc(-1 * var(--gm-space-2)) 0 var(--gm-space-3); color: var(--mat-sys-primary); }

@@ -1,7 +1,13 @@
+import { environment } from '../../environments/environment';
+
 /** App-wide runtime config for the GRANT-MGMT app on Platform Commons (dev). */
 export const APP_CONFIG = {
   /** Proxied to https://dev.platformcommons.org/gateway/commons-iam-service (see proxy.conf.json). */
   iamBaseUrl: '/iam',
+  /** commons-grant-service, called directly from the browser. Set per build in src/environments/. */
+  grantBaseUrl: environment.grantServiceUrl,
+  /** Prefill forms with sample data (environment.debugMode === 1). */
+  debugMode: environment.debugMode === 1,
   /** Serve IAM endpoints from an in-browser mock (see core/auth/mock-iam.interceptor.ts) instead of the gateway. */
   mockApi: false,
   /** Header that carries the session id. Some IAM endpoints return it as `SESSIONID` instead. */

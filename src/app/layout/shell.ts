@@ -12,6 +12,7 @@ import { map } from 'rxjs';
 import { ThemeService } from '../core/theme.service';
 import { AuthStore } from '../core/auth/auth.store';
 import { MatMenuModule } from '@angular/material/menu';
+import { NAV, affiliationOrDefault } from '../core/nav';
 
 @Component({
   selector: 'gm-shell',
@@ -29,8 +30,6 @@ export class Shell {
     inject(BreakpointObserver).observe('(max-width: 959.98px)').pipe(map(r => r.matches)),
     { initialValue: false },
   );
-  protected readonly nav = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'space_dashboard' },
-    { path: '/grants', label: 'Grants', icon: 'request_quote' },
-  ];
+  protected readonly affiliation = computed(() => affiliationOrDefault(this.auth.user()?.affiliation));
+  protected readonly nav = computed(() => NAV[this.affiliation()]);
 }

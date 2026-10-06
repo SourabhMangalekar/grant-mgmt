@@ -19,7 +19,25 @@ const pending = new Set<number>();
 const sessions = new Map<string, number>(load());
 const leads = new Map<string, any>();
 
+/** In-memory commons-grant-service grant calls (POST/GET /api/v1/grant-calls). */
+const grantCalls: any[] = [];
+
 export const mockIamInterceptor: HttpInterceptorFn = (req, next) => {
+  if (APP_CONFIG.mockApi && req.url === `${APP_CONFIG.grantBaseUrl}/api/v1/grant-calls`) {
+    if (req.method === 'POST') {
+      const call = { ...(req.body as object), id: grantCalls.length + 1 };
+      grantCalls.push(call);
+      return of(new HttpResponse({ status: 201, body: call })).pipe(delay(500));
+    }
+    return of(new HttpResponse({ status: 200, body: { elements: [...grantCalls], totalElements: grantCalls.length } })).pipe(delay(300));
+  }
+  const byId = APP_CONFIG.mockApi && req.url.match(/\/api\/v1\/grant-calls\/(\d+)(\/applications)?$/);
+  if (byId && req.url.startsWith(APP_CONFIG.grantBaseUrl)) {
+    const call = grantCalls.find(c => c.id === +byId[1]);
+    if (byId[2]) return of(new HttpResponse({ status: 200, body: { elements: [], totalElements: 0 } })).pipe(delay(300));
+    return (call ? of(new HttpResponse({ status: 200, body: call }))
+      : throwError(() => new HttpErrorResponse({ status: 404, error: { message: 'Not found' } }))).pipe(delay(300));
+  }
   if (!APP_CONFIG.mockApi || !req.url.startsWith(APP_CONFIG.iamBaseUrl)) return next(req);
   const path = req.url.slice(APP_CONFIG.iamBaseUrl.length);
   return route(req, path).pipe(delay(500));

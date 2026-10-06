@@ -1,0 +1,215 @@
+<div class="page">
+  <a class="back-link" routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> Calls for proposals</a>
+
+  @if (loading()) {
+    <div class="loading-state"><mat-spinner diameter="32" /></div>
+  } @else if (error(); as e) {
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>error_outline</mat-icon></span>
+      <h2>Couldn’t open this call</h2>
+      <p>{{ e }}</p>
+      <div class="empty-actions">
+        <a mat-stroked-button routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> All calls</a>
+        <button mat-flat-button (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button>
+      </div>
+    </div>
+  } @else if (call(); as c) {
+    <!-- Hero -->
+    <section class="hero" [attr.data-phase]="phase()">
+      <div class="hero-top">
+        <div class="chips">
+          <span class="phase">
+            <span class="dot"></span>
+            @switch (phase()) {
+              @case ('live') { Accepting applications }
+              @case ('upcoming') { Opens soon }
+              @case ('closed') { Closed }
+              @default { {{ c.state ? (c.state | titlecase) : 'Draft' }} }
+            }
+          </span>
+          @if (c.theme) { <span class="chip"><mat-icon>category</mat-icon>{{ c.theme }}</span> }
+          @if (c.isCsrFunded) { <span class="chip"><mat-icon>verified</mat-icon>CSR</span> }
+          @if (c.isForeignFunded) { <span class="chip"><mat-icon>public</mat-icon>Foreign funded</span> }
+        </div>
+        <button mat-stroked-button class="copy" (click)="copyLink()">
+          <mat-icon>{{ copied() ? 'check' : 'link' }}</mat-icon> {{ copied() ? 'Link copied' : 'Copy link' }}
+        </button>
+      </div>
+
+      @if (c.callCode) { <span class="code">{{ c.callCode }}</span> }
+      <h1>{{ c.title || 'Untitled call for proposals' }}</h1>
+
+      <!-- Application window -->
+      @if (c.opensAt && c.closesAt) {
+        <div class="window">
+          <div class="window-labels">
+            <span>{{ c.opensAt | date: 'd MMM y' }}</span>
+            <strong>
+              @switch (phase()) {
+                @case ('live') { {{ daysLeft() }} day{{ daysLeft() === 1 ? '' : 's' }} left to apply }
+                @case ('upcoming') { Opens in {{ daysToOpen() }} day{{ daysToOpen() === 1 ? '' : 's' }} }
+                @case ('closed') { Applications closed }
+                @default { Not published yet }
+              }
+            </strong>
+            <span>{{ c.closesAt | date: 'd MMM y' }}</span>
+          </div>
+          <div class="bar" role="progressbar" [attr.aria-valuenow]="windowProgress()" aria-valuemin="0" aria-valuemax="100"
+               aria-label="Application window elapsed">
+            <span [style.width.%]="windowProgress()"></span>
+          </div>
+        </div>
+      }
+
+      <!-- Key figures -->
+      <dl class="figures">
+        <div>
+          <dt>Total envelope</dt>
+          <dd>{{ c.envelopeAmountMinor / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }}</dd>
+        </div>
+        <div>
+          <dt>Per award</dt>
+          <dd class="range">
+            @if (c.minAwardMinor != null || c.maxAwardMinor != null) {
+              <span>{{ (c.minAwardMinor ?? 0) / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }}</span>
+              <small>to</small>
+              <span>{{ c.maxAwardMinor != null ? (c.maxAwardMinor / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0') : 'No cap' }}</span>
+            } @else { — }
+          </dd>
+        </div>
+        <div>
+          <dt>Applications</dt>
+          <dd>{{ applicationsTotal() }}</dd>
+        </div>
+        <div>
+          <dt>Reviewers / application</dt>
+          <dd>{{ c.reviewersRequired }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <div class="layout">
+      <div class="main stack">
+        <!-- About -->
+        <section class="surface-card block">
+          <header><mat-icon>info</mat-icon><h2>About this call</h2></header>
+          <p class="description">{{ c.description || 'No description provided.' }}</p>
+        </section>
+
+        <!-- Timeline -->
+        <section class="surface-card block">
+          <header><mat-icon>timeline</mat-icon><h2>Timeline</h2></header>
+          <ol class="timeline">
+            @for (m of milestones(); track m.label) {
+              <li [class.done]="m.done">
+                <span class="node"><mat-icon>{{ m.done ? 'check' : m.icon }}</mat-icon></span>
+                <span class="m-label">{{ m.label }}</span>
+                <span class="m-date">{{ m.at ? (m.at | date: 'd MMM y') : (m.hint || '—') }}</span>
+              </li>
+            }
+          </ol>
+        </section>
+
+        <!-- Questions -->
+        <section class="surface-card block">
+          <header>
+            <mat-icon>quiz</mat-icon><h2>What applicants answer</h2>
+            <span class="pill">{{ responseFormat() }}</span>
+          </header>
+          @if (questions().length) {
+            <ol class="questions">
+              @for (q of questions(); track $index) {
+                <li><span class="qn">Q{{ $index + 1 }}</span><span>{{ q }}</span></li>
+              }
+            </ol>
+          } @else {
+            <p class="muted">No questions — applicants respond with a proposal document.</p>
+          }
+        </section>
+
+        <!-- Applications -->
+        <section class="surface-card block">
+          <header>
+            <mat-icon>inbox</mat-icon><h2>Applications</h2>
+            <span class="pill">{{ applicationsTotal() }}</span>
+          </header>
+          @if (applications().length) {
+            <ul class="apps">
+              @for (a of applications(); track a.id) {
+                <li>
+                  <span class="avatar"><mat-icon>apartment</mat-icon></span>
+                  <div class="info">
+                    <span class="title">{{ a.title || a.referenceCode || 'Application #' + a.id }}</span>
+                    <span class="muted">{{ a.referenceCode }}{{ a.submittedAt ? ' · submitted ' + (a.submittedAt | date: 'd MMM y') : '' }}</span>
+                  </div>
+                  @if (a.requestedAmountMinor != null) {
+                    <span class="amount">{{ a.requestedAmountMinor / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }}</span>
+                  }
+                  <span class="state">{{ a.state ? (a.state | titlecase) : 'Draft' }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="empty-state compact dashed">
+              <span class="empty-icon"><mat-icon>mark_email_unread</mat-icon></span>
+              <h2>No applications yet</h2>
+              <p>
+                @switch (phase()) {
+                  @case ('live') { Applications will appear here as grantees submit them. Share the link to spread the word. }
+                  @case ('upcoming') { The call opens on {{ c.opensAt | date: 'd MMM y' }}. }
+                  @case ('closed') { This call closed without receiving applications. }
+                  @default { Publish this call so grantees can start applying. }
+                }
+              </p>
+            </div>
+          }
+        </section>
+      </div>
+
+      <aside class="side stack">
+        <!-- Eligibility & compliance -->
+        <section class="surface-card block">
+          <header><mat-icon>gavel</mat-icon><h2>Funding &amp; compliance</h2></header>
+          <ul class="facts">
+            <li>
+              <mat-icon [class.on]="c.isCsrFunded">{{ c.isCsrFunded ? 'check_circle' : 'remove_circle_outline' }}</mat-icon>
+              <div>
+                <strong>{{ c.isCsrFunded ? 'CSR funded' : 'Not CSR funded' }}</strong>
+                @if (scheduleVii(); as s) { <span class="muted">Schedule VII {{ s }}</span> }
+              </div>
+            </li>
+            <li>
+              <mat-icon [class.on]="c.isForeignFunded">{{ c.isForeignFunded ? 'check_circle' : 'remove_circle_outline' }}</mat-icon>
+              <div>
+                <strong>{{ c.isForeignFunded ? 'Foreign funded' : 'Domestic funds' }}</strong>
+                @if (c.isForeignFunded) { <span class="muted">Applicants need FCRA registration</span> }
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Documents -->
+        <section class="surface-card block">
+          <header><mat-icon>folder_open</mat-icon><h2>Required documents</h2><span class="pill">{{ docs().length }}</span></header>
+          @if (docs().length) {
+            <ul class="docs">
+              @for (d of docs(); track d) { <li><mat-icon>description</mat-icon><span>{{ d }}</span></li> }
+            </ul>
+          } @else {
+            <p class="muted">No documents required.</p>
+          }
+        </section>
+
+        <!-- Budget -->
+        <section class="surface-card block">
+          <header><mat-icon>account_balance_wallet</mat-icon><h2>Budget set-up</h2></header>
+          <dl class="kv">
+            <div><dt>Format</dt><dd>{{ budgetFormat() }}</dd></div>
+            <div><dt>Period</dt><dd>{{ budgetPeriod() }}</dd></div>
+            <div><dt>Currency</dt><dd>{{ c.currencyCode || 'INR' }}</dd></div>
+          </dl>
+        </section>
+      </aside>
+    </div>
+  }
+</div>

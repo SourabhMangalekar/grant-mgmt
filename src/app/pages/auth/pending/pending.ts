@@ -39,7 +39,7 @@ export class Pending {
     this.auth.refresh().subscribe({
       next: u => {
         this.loading.set(false);
-        if (u.approved) this.router.navigateByUrl('/dashboard');
+        if (u.approved) this.router.navigateByUrl('/');
         else this.message.set('Still waiting — your admin hasn’t approved you yet.');
       },
       error: err => { this.loading.set(false); this.message.set(authErrorMessage(err)); },

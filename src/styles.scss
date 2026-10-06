@@ -12,19 +12,64 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+// ── Layout rhythm ───────────────────────────────────────────────────────
+// One spacing system for every page: use these tokens, not ad-hoc values.
+//   page gutter   : space-5 (phone) → space-6 (desktop)
+//   header → body : space-6
+//   between cards : space-4      card padding: space-5 (space-4 on phones)
+:root {
+  --gm-gutter: var(--gm-space-5);
+  --gm-section-gap: var(--gm-space-4);
+  --gm-card-pad: var(--gm-space-5);
+  @media (min-width: 960px) { --gm-gutter: var(--gm-space-6); }
+  @media (max-width: 599.98px) { --gm-gutter: var(--gm-space-4); --gm-card-pad: var(--gm-space-4); }
+}
+
 .page {
   max-width: var(--gm-content-max);
   margin: 0 auto;
-  padding: var(--gm-space-4);
-  @media (min-width: 960px) { padding: var(--gm-space-6); }
+  padding: var(--gm-gutter) var(--gm-gutter) var(--gm-space-8);
 }
 .page-header {
-  display: flex; flex-wrap: wrap; gap: var(--gm-space-3);
-  align-items: center; justify-content: space-between;
-  margin-bottom: var(--gm-space-5);
+  display: flex; flex-wrap: wrap; gap: var(--gm-space-4);
+  align-items: flex-end; justify-content: space-between;
+  margin-bottom: var(--gm-space-6);
   h1 { font: var(--mat-sys-headline-small); margin: 0; }
-  p { margin: var(--gm-space-1) 0 0; color: var(--mat-sys-on-surface-variant); }
+  p { margin: var(--gm-space-2) 0 0; color: var(--mat-sys-on-surface-variant); }
+  .eyebrow { margin-bottom: var(--gm-space-2); }
 }
+/** Vertical stack of cards/sections with the standard gap. */
+.stack { display: flex; flex-direction: column; gap: var(--gm-section-gap); min-width: 0; }
+
+/** "← Parent page" link above a page header. */
+.back-link {
+  display: inline-flex; align-items: center; gap: var(--gm-space-1);
+  margin-bottom: var(--gm-space-4);
+  color: var(--mat-sys-primary); text-decoration: none; font: var(--mat-sys-label-large);
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  &:hover { text-decoration: underline; }
+}
+
+/** Empty / error / loading placeholder. Markup: icon in .empty-icon, then h2, p, and an optional .empty-actions. */
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--gm-space-3);
+  padding: var(--gm-space-8) var(--gm-space-5);
+  h2 { margin: var(--gm-space-2) 0 0; font: var(--mat-sys-title-medium); }
+  p { margin: 0; max-width: 48ch; color: var(--mat-sys-on-surface-variant); }
+  &.compact { padding: var(--gm-space-5) var(--gm-space-4); gap: var(--gm-space-2); }
+  &.dashed { border: 1px dashed var(--mat-sys-outline-variant); border-radius: var(--gm-radius-md); }
+}
+.empty-icon {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container);
+  mat-icon { font-size: 28px; width: 28px; height: 28px; }
+  &.error { background: var(--gm-status-rejected-bg); color: var(--gm-status-rejected); }
+}
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gm-space-2); margin-top: var(--gm-space-2); }
+.loading-state { display: grid; place-items: center; padding: var(--gm-space-8); }
+
 .surface-card {
   background: var(--mat-sys-surface-container-lowest);
   border: 1px solid var(--mat-sys-outline-variant);
