@@ -1,0 +1,86 @@
+<section class="auth-card">
+  <span class="eyebrow">Welcome back</span>
+  <h1>Sign in</h1>
+  <p class="lede">
+    @if (step() === 1) { Enter your email, mobile or username to continue. }
+    @else { Choose your organisation and enter your password. }
+  </p>
+
+  @if (reset()) {
+    <div class="auth-alert success" role="status"><mat-icon>check_circle</mat-icon> Password updated. Sign in with your new password.</div>
+  }
+  @if (error(); as e) {
+    <div class="auth-alert error" role="alert"><mat-icon>error</mat-icon> {{ e }}</div>
+  }
+
+  <form class="auth-form" [formGroup]="form" (ngSubmit)="step() === 1 ? next() : submit()" novalidate>
+    <mat-form-field appearance="outline">
+      <mat-label>Email, mobile or username</mat-label>
+      <mat-icon matPrefix>person</mat-icon>
+      <input matInput formControlName="userLogin" autocomplete="username" autocapitalize="none" spellcheck="false"
+             [readonly]="step() === 2">
+      @if (step() === 2) {
+        <button mat-icon-button matSuffix type="button" (click)="back()" aria-label="Change email or username">
+          <mat-icon>edit</mat-icon>
+        </button>
+      }
+      @if (form.controls.userLogin.hasError('required')) { <mat-error>Enter your email, mobile or username</mat-error> }
+    </mat-form-field>
+
+    @if (step() === 1) {
+      <button mat-flat-button class="submit" type="submit" [disabled]="loading()">
+        @if (loading()) { <mat-spinner diameter="20" /> } @else { Next }
+      </button>
+    } @else {
+      @if (tenants().length) {
+        <mat-form-field appearance="outline">
+          <mat-label>Organisation</mat-label>
+          <mat-icon matPrefix>apartment</mat-icon>
+          <mat-select formControlName="tenantLogin">
+            @for (t of tenants(); track t.id) {
+              <mat-option [value]="t.login">{{ t.name }} <span class="muted">· {{ t.login }}</span></mat-option>
+            }
+          </mat-select>
+          @if (form.controls.tenantLogin.hasError('required')) { <mat-error>Choose your organisation</mat-error> }
+        </mat-form-field>
+      } @else {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
+          <mat-label>Organisation ID</mat-label>
+          <mat-icon matPrefix>apartment</mat-icon>
+          <input matInput formControlName="tenantLogin" autocomplete="organization" autocapitalize="none" spellcheck="false">
+          <mat-hint>We couldn’t find an organisation for this login — enter its ID.</mat-hint>
+          @if (form.controls.tenantLogin.hasError('required')) { <mat-error>Enter your organisation ID</mat-error> }
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <mat-icon matPrefix>lock</mat-icon>
+        <input matInput formControlName="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password">
+        <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+          <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        @if (form.controls.password.hasError('required')) { <mat-error>Enter your password</mat-error> }
+      </mat-form-field>
+
+      <div class="between">
+        <span></span>
+        <a class="auth-link" routerLink="/auth/forgot-password">Forgot password?</a>
+      </div>
+
+      <button mat-flat-button class="submit" type="submit" [disabled]="loading()">
+        @if (loading()) { <mat-spinner diameter="20" /> } @else { Sign in }
+      </button>
+    }
+  </form>
+
+  @if (demo) {
+    <div class="auth-alert info" style="margin-top: var(--gm-space-4)">
+      <mat-icon>info</mat-icon>
+      <span>Demo mode: user <b>meera&#64;kaveri.org</b>, password <b>Password&#64;123</b>.</span>
+    </div>
+  }
+
+  <p class="auth-foot">New to GrantHub? <a class="auth-link" routerLink="/auth/signup">Create an account</a></p>
+</section>

@@ -1,0 +1,31 @@
+@use 'breakpoints' as bp;
+
+.filters {
+  display: flex; flex-wrap: wrap; gap: var(--gm-space-3);
+  margin-bottom: var(--gm-space-4);
+  .search { flex: 1 1 280px; }
+  .status { flex: 0 1 200px; }
+  @include bp.down(sm) { .status { flex: 1 1 100%; } }
+}
+
+table { width: 100%; background: transparent; }
+th.mat-mdc-header-cell { font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mat-sys-on-surface-variant); }
+tr.mat-mdc-row:hover { background: var(--mat-sys-surface-container); }
+.num { text-align: right; white-space: nowrap; font-family: var(--gm-font-mono); }
+.title { font: var(--mat-sys-title-small); }
+.small { font: var(--mat-sys-body-small); }
+.empty { padding: var(--gm-space-6); text-align: center; color: var(--mat-sys-on-surface-variant); }
+
+.cards { display: grid; gap: var(--gm-space-3); }
+.grant-card {
+  display: flex; flex-direction: column; gap: var(--gm-space-1);
+  padding: var(--gm-space-4);
+  .row { display: flex; align-items: center; justify-content: space-between; gap: var(--gm-space-2); }
+  .row:last-child { margin-top: var(--gm-space-2); }
+}
+
+.mobile-only { display: none; }
+@include bp.down(sm) {
+  .desktop-only { display: none; }
+  .mobile-only { display: grid; }
+}

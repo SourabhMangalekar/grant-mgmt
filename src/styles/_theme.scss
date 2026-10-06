@@ -1,0 +1,48 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (primary: mat.$blue-palette, tertiary: mat.$cyan-palette),
+    typography: (plain-family: var(--gm-font-sans), brand-family: var(--gm-font-sans)),
+    density: 0,
+  ));
+
+  @include mat.card-overrides((
+    elevated-container-shape: var(--gm-radius-lg),
+    outlined-container-shape: var(--gm-radius-lg),
+  ));
+  @include mat.sidenav-overrides((container-shape: 0));
+  @include mat.button-overrides((filled-container-shape: var(--gm-radius-md)));
+  @include mat.list-overrides((active-indicator-shape: var(--gm-radius-md)));
+  @include mat.toolbar-overrides((
+    container-background-color: var(--mat-sys-surface),
+    container-text-color: var(--mat-sys-on-surface),
+  ));
+}
+
+// Navy dark theme — the default look.
+html.dark-theme {
+  color-scheme: dark;
+  @include mat.theme-overrides((
+    primary: #7c9cff,
+    on-primary: #0a1230,
+    primary-container: #1e2c5c,
+    on-primary-container: #c9d6ff,
+    tertiary: #5ee6d0,
+    tertiary-container: #123d3a,
+    on-tertiary-container: #a8f3e6,
+    surface: #0b1120,
+    surface-container-lowest: #101a30,
+    surface-container-low: #0b1120,
+    surface-container: #16223d,
+    surface-container-high: #1b2847,
+    surface-container-highest: #22315a,
+    on-surface: #eef2ff,
+    on-surface-variant: #a3aecb,
+    outline: #3a4a73,
+    outline-variant: #1f2c4a,
+    secondary-container: #1e2c5c,
+    on-secondary-container: #c9d6ff,
+  ));
+}

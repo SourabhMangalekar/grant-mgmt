@@ -1,0 +1,9 @@
+{
+  "/iam": {
+    "target": "https://dev.platformcommons.org",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/iam": "/gateway/commons-iam-service" },
+    "logLevel": "info"
+  }
+}

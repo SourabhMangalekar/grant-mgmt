@@ -1,0 +1,49 @@
+// Design tokens — the single source for spacing, radius, elevation and status colors.
+:root {
+  --gm-font-sans: 'Plus Jakarta Sans', Inter, Roboto, sans-serif;
+  --gm-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --gm-space-1: 4px;
+  --gm-space-2: 8px;
+  --gm-space-3: 12px;
+  --gm-space-4: 16px;
+  --gm-space-5: 24px;
+  --gm-space-6: 32px;
+  --gm-space-8: 48px;
+
+  --gm-radius-sm: 8px;
+  --gm-radius-md: 12px;
+  --gm-radius-lg: 16px;
+
+  --gm-content-max: 1280px;
+  --gm-toolbar-h: 64px;
+  --gm-sidenav-w: 248px;
+
+  --gm-shadow-1: 0 1px 2px rgb(0 0 0 / 6%), 0 1px 3px rgb(0 0 0 / 8%);
+
+  // Status colors (light)
+  --gm-status-draft: #5f6368;
+  --gm-status-draft-bg: #eceff1;
+  --gm-status-review: #8a5a00;
+  --gm-status-review-bg: #fff3d6;
+  --gm-status-approved: #0b6b3a;
+  --gm-status-approved-bg: #d9f5e5;
+  --gm-status-rejected: #a4161a;
+  --gm-status-rejected-bg: #fde2e1;
+  --gm-status-closed: #3949ab;
+  --gm-status-closed-bg: #e3e7fb;
+}
+
+.dark-theme {
+  --gm-shadow-1: none;
+  --gm-status-draft: #a3aecb;
+  --gm-status-draft-bg: #1b2540;
+  --gm-status-review: #ffb547;
+  --gm-status-review-bg: #3a2a10;
+  --gm-status-approved: #5ee6a8;
+  --gm-status-approved-bg: #0f3328;
+  --gm-status-rejected: #ff8a8a;
+  --gm-status-rejected-bg: #45161c;
+  --gm-status-closed: #8fa8ff;
+  --gm-status-closed-bg: #1e2c5c;
+}

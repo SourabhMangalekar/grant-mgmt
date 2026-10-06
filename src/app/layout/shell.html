@@ -1,0 +1,49 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav #drawer class="sidenav"
+               [mode]="isMobile() ? 'over' : 'side'"
+               [opened]="!isMobile()">
+    <div class="brand">
+      <span class="logo"><mat-icon>bar_chart</mat-icon></span>
+      <span class="brand-name">GrantHub</span>
+    </div>
+    <mat-nav-list>
+      @for (item of nav; track item.path) {
+        <a mat-list-item [routerLink]="item.path" routerLinkActive #rla="routerLinkActive"
+           [activated]="rla.isActive" (click)="isMobile() && drawer.close()">
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar class="toolbar">
+      @if (isMobile()) {
+        <button mat-icon-button aria-label="Open navigation" (click)="drawer.toggle()">
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
+      <span class="spacer"></span>
+      <button mat-icon-button (click)="theme.toggle()"
+              [attr.aria-label]="theme.dark() ? 'Switch to light theme' : 'Switch to dark theme'"
+              [matTooltip]="theme.dark() ? 'Light theme' : 'Dark theme'">
+        <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+      <button class="avatar" [matMenuTriggerFor]="userMenu" aria-label="Account menu">{{ initials() }}</button>
+      <mat-menu #userMenu="matMenu" xPosition="before">
+        @if (auth.user(); as u) {
+          <div class="menu-user">
+            <strong>{{ u.name }}</strong>
+            <span class="muted">Org ID: {{ u.tenantLogin }}</span>
+            <span class="muted">{{ u.tenantName }}@if (u.affiliation) { · {{ u.affiliation === 'granter' ? 'Granter' : 'Grantee' }} }</span>
+          </div>
+        }
+        <button mat-menu-item (click)="auth.logout()"><mat-icon>logout</mat-icon> Sign out</button>
+      </mat-menu>
+    </mat-toolbar>
+    <main>
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

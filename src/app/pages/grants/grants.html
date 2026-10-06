@@ -1,0 +1,84 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">Funder</span>
+      <h1>Grants</h1>
+      <p>{{ rows().length }} application{{ rows().length === 1 ? '' : 's' }}</p>
+    </div>
+  </header>
+
+  <div class="filters">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search">
+      <mat-icon matPrefix>search</mat-icon>
+      <mat-label>Search</mat-label>
+      <input matInput [value]="query()" (input)="query.set($any($event.target).value)"
+             placeholder="Title, applicant, program…">
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="status">
+      <mat-label>Status</mat-label>
+      <mat-select [value]="status()" (valueChange)="status.set($event)">
+        <mat-option value="">All</mat-option>
+        @for (s of statuses; track s) { <mat-option [value]="s">{{ s }}</mat-option> }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Desktop / tablet: table -->
+  <div class="surface-card table-scroll desktop-only">
+    <table mat-table [dataSource]="rows()">
+      <ng-container matColumnDef="id">
+        <th mat-header-cell *matHeaderCellDef>ID</th>
+        <td mat-cell *matCellDef="let g" class="muted">{{ g.id }}</td>
+      </ng-container>
+      <ng-container matColumnDef="title">
+        <th mat-header-cell *matHeaderCellDef>Grant</th>
+        <td mat-cell *matCellDef="let g">
+          <div class="title">{{ g.title }}</div>
+          <div class="muted small">{{ g.applicant }}</div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="program">
+        <th mat-header-cell *matHeaderCellDef>Program</th>
+        <td mat-cell *matCellDef="let g">{{ g.program }}</td>
+      </ng-container>
+      <ng-container matColumnDef="amount">
+        <th mat-header-cell *matHeaderCellDef class="num">Amount</th>
+        <td mat-cell *matCellDef="let g" class="num">{{ g.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="submittedOn">
+        <th mat-header-cell *matHeaderCellDef>Submitted</th>
+        <td mat-cell *matCellDef="let g">{{ g.submittedOn | date: 'mediumDate' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let g"><gm-status-chip [status]="g.status" /></td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      <tr class="mat-row" *matNoDataRow>
+        <td class="empty" [attr.colspan]="columns.length">No grants match your filters.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Mobile: cards -->
+  <div class="cards mobile-only">
+    @for (g of rows(); track g.id) {
+      <article class="surface-card grant-card">
+        <div class="row">
+          <span class="muted small">{{ g.id }} · {{ g.program }}</span>
+          <gm-status-chip [status]="g.status" />
+        </div>
+        <div class="title">{{ g.title }}</div>
+        <div class="muted small">{{ g.applicant }}</div>
+        <div class="row">
+          <strong>{{ g.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</strong>
+          <span class="muted small">{{ g.submittedOn | date: 'mediumDate' }}</span>
+        </div>
+      </article>
+    } @empty {
+      <div class="surface-card empty">No grants match your filters.</div>
+    }
+  </div>
+</div>

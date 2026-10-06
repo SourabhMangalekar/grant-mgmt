@@ -1,0 +1,129 @@
+<section class="auth-card">
+  <div class="steps" aria-hidden="true"><span class="on"></span><span [class.on]="step() === 2"></span></div>
+  <span class="eyebrow">Step {{ step() }} of 2</span>
+
+  @if (step() === 1) {
+    <h1>Create your account</h1>
+    <p class="lede">Tell us who you are and which organisation you belong to.</p>
+  } @else {
+    <h1>Verify &amp; secure</h1>
+    <p class="lede">Enter the code we emailed you and choose a password.</p>
+  }
+
+  @if (error(); as e) {
+    <div class="auth-alert error" role="alert"><mat-icon>error</mat-icon> {{ e }}</div>
+  }
+  @if (notice(); as n) {
+    <div class="auth-alert info" role="status"><mat-icon>mark_email_read</mat-icon> {{ n }}</div>
+  }
+
+  @if (step() === 1) {
+    <form class="auth-form" [formGroup]="details" (ngSubmit)="sendCode()" novalidate>
+      <mat-button-toggle-group class="affiliation" [value]="affiliation()" (change)="setAffiliation($event.value)"
+                               aria-label="Sign up as" hideSingleSelectionIndicator>
+        <mat-button-toggle value="granter"><mat-icon>volunteer_activism</mat-icon> Granter</mat-button-toggle>
+        <mat-button-toggle value="grantee"><mat-icon>diversity_3</mat-icon> Grantee</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Organisation name</mat-label>
+        <mat-icon matPrefix>apartment</mat-icon>
+        <input matInput formControlName="organisationName" autocomplete="organization">
+        @if (details.controls.organisationName.hasError('required')) { <mat-error>Enter your organisation’s name</mat-error> }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
+        <mat-label>Organisation ID</mat-label>
+        <input matInput formControlName="tenantLogin" autocapitalize="none" spellcheck="false">
+        @if (lookup().state === 'checking') { <mat-spinner matSuffix diameter="18" /> }
+        @switch (lookup().state) {
+          @case ('new') { <mat-hint class="ok">Available — a new {{ affiliation() }} organisation will be created and you’ll be its admin. Its ID is generated from the name.</mat-hint> }
+          @case ('existing') { <mat-hint class="ok">Found it — you’ll ask to join this organisation. Its admin will approve you.</mat-hint> }
+          @case ('wrong-type') { <mat-hint class="warn">This ID belongs to an organisation that isn’t registered as a {{ affiliation() }}.</mat-hint> }
+          @case ('error') { <mat-hint class="warn">Couldn’t check this ID. Try again in a moment.</mat-hint> }
+          @default { <mat-hint>Your team uses this to sign in. Enter an existing ID to join that organisation.</mat-hint> }
+        }
+        @if (details.controls.tenantLogin.hasError('required')) { <mat-error>Choose an organisation ID</mat-error> }
+        @else if (details.controls.tenantLogin.hasError('pattern')) { <mat-error>Lowercase letters, numbers, underscores or dashes</mat-error> }
+      </mat-form-field>
+
+      @if (lookup(); as l) {
+        @if (l.state === 'existing') {
+          <div class="auth-alert info" role="status"><mat-icon>group_add</mat-icon> Joining <b>{{ l.tenant.tenantName }}</b></div>
+        }
+      }
+
+      <div class="row-2">
+        <mat-form-field appearance="outline">
+          <mat-label>First name</mat-label>
+          <input matInput formControlName="firstName" autocomplete="given-name">
+          @if (details.controls.firstName.hasError('required')) { <mat-error>Enter your first name</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Last name</mat-label>
+          <input matInput formControlName="lastName" autocomplete="family-name">
+        </mat-form-field>
+      </div>
+
+      <div class="row-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Work email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="email">
+          @if (details.controls.email.hasError('required')) { <mat-error>Enter your email</mat-error> }
+          @else if (details.controls.email.hasError('email')) { <mat-error>Enter a valid email</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Mobile (optional)</mat-label>
+          <input matInput type="tel" formControlName="mobile" autocomplete="tel">
+          @if (details.controls.mobile.hasError('pattern')) { <mat-error>Enter a 10-digit mobile number</mat-error> }
+        </mat-form-field>
+      </div>
+
+      <button mat-flat-button class="submit" type="submit"
+              [disabled]="loading() || lookup().state === 'wrong-type' || lookup().state === 'checking'">
+        @if (loading()) { <mat-spinner diameter="20" /> } @else { Send verification code }
+      </button>
+    </form>
+  } @else {
+    <form class="auth-form" [formGroup]="verify" (ngSubmit)="createAccount()" novalidate>
+      <mat-form-field appearance="outline" class="otp-input">
+        <mat-label>Verification code</mat-label>
+        <input matInput formControlName="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+        @if (demo) { <mat-hint>Demo mode: use 123456</mat-hint> }
+        @if (verify.controls.otp.invalid) { <mat-error>Enter the code from the email</mat-error> }
+      </mat-form-field>
+      <div class="between">
+        <span class="muted">Didn’t get it?</span>
+        <button class="auth-link" type="button" (click)="resend()" [disabled]="loading()">Resend code</button>
+      </div>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
+        <mat-label>Password</mat-label>
+        <mat-icon matPrefix>lock</mat-icon>
+        <input matInput formControlName="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password">
+        <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+          <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-hint>{{ hint }}</mat-hint>
+        @if (verify.controls.password.hasError('required')) { <mat-error>Choose a password</mat-error> }
+        @else if (verify.controls.password.hasError('weakPassword')) { <mat-error>{{ hint }}</mat-error> }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Confirm password</mat-label>
+        <mat-icon matPrefix>lock</mat-icon>
+        <input matInput formControlName="confirm" [type]="showPassword() ? 'text' : 'password'" autocomplete="new-password">
+        @if (verify.controls.confirm.hasError('mismatch')) { <mat-error>Passwords don’t match</mat-error> }
+        @else if (verify.controls.confirm.hasError('required')) { <mat-error>Re-enter your password</mat-error> }
+      </mat-form-field>
+
+      <button mat-flat-button class="submit" type="submit" [disabled]="loading()">
+        @if (loading()) { <mat-spinner diameter="20" /> } @else { {{ joining() ? 'Request to join' : 'Create organisation' }} }
+      </button>
+      <button mat-button type="button" (click)="back()" [disabled]="loading()"><mat-icon>arrow_back</mat-icon> Edit details</button>
+    </form>
+  }
+
+  <p class="auth-foot">Already have an account? <a class="auth-link" routerLink="/auth/login">Sign in</a></p>
+</section>

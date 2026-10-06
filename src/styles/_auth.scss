@@ -1,0 +1,43 @@
+// Shared styles for the auth screens (login, signup, forgot password).
+.auth-card {
+  h1 { font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; margin: var(--gm-space-1) 0 var(--gm-space-2); }
+  .lede { color: var(--mat-sys-on-surface-variant); margin: 0 0 var(--gm-space-5); }
+}
+.auth-form {
+  display: flex; flex-direction: column; gap: var(--gm-space-1);
+  mat-form-field { width: 100%; }
+  .row-2 { display: grid; gap: 0 var(--gm-space-3); grid-template-columns: 1fr; }
+  @media (min-width: 600px) { .row-2 { grid-template-columns: 1fr 1fr; } }
+  .submit { height: 48px; margin-top: var(--gm-space-2); font: var(--mat-sys-label-large); }
+  .between { display: flex; justify-content: space-between; align-items: center; margin: calc(-1 * var(--gm-space-1)) 0 var(--gm-space-2); }
+  .affiliation {
+    display: grid; grid-template-columns: 1fr 1fr; margin-bottom: var(--gm-space-4);
+    mat-icon { vertical-align: middle; margin-right: var(--gm-space-1); }
+  }
+  mat-hint.ok { color: var(--gm-status-approved); }
+  mat-hint.warn { color: var(--gm-status-rejected); }
+}
+.auth-alert {
+  display: flex; gap: var(--gm-space-2); align-items: flex-start;
+  padding: var(--gm-space-3) var(--gm-space-4); margin-bottom: var(--gm-space-4);
+  border-radius: var(--gm-radius-md);
+  font: var(--mat-sys-body-medium);
+  mat-icon { flex: none; font-size: 20px; width: 20px; height: 20px; }
+  &.error { color: var(--gm-status-rejected); background: var(--gm-status-rejected-bg); }
+  &.info  { color: var(--gm-status-closed);   background: var(--gm-status-closed-bg); }
+  &.success { color: var(--gm-status-approved); background: var(--gm-status-approved-bg); }
+}
+.auth-foot { margin-top: var(--gm-space-5); text-align: center; color: var(--mat-sys-on-surface-variant); }
+.auth-link {
+  color: var(--mat-sys-primary); font-weight: 600; text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-weight: 600;
+  &:hover { text-decoration: underline; }
+  &:disabled { color: var(--mat-sys-on-surface-variant); cursor: default; text-decoration: none; }
+}
+.steps {
+  display: flex; gap: var(--gm-space-2); margin-bottom: var(--gm-space-4);
+  span { flex: 1; height: 4px; border-radius: 2px; background: var(--mat-sys-surface-container-highest); }
+  span.on { background: var(--mat-sys-primary); }
+}
+.otp-input input { font-family: var(--gm-font-mono); font-size: 22px; letter-spacing: 0.5em; text-align: center; }
+
+.auth-form .grow { margin-bottom: var(--gm-space-4); }
