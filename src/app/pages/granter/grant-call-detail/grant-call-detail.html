@@ -1,15 +1,19 @@
 <div class="page">
-  <a class="back-link" routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> Calls for proposals</a>
+  @if (isGrantee()) {
+    <a class="back-link" routerLink="/calls"><mat-icon>arrow_back</mat-icon> Open calls</a>
+  } @else {
+    <a class="back-link" routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> Calls for proposals</a>
+  }
 
   @if (loading()) {
-    <div class="loading-state"><mat-spinner diameter="32" /></div>
+    <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading call for proposals" /></div>
   } @else if (error(); as e) {
     <div class="surface-card empty-state">
       <span class="empty-icon error"><mat-icon>error_outline</mat-icon></span>
       <h2>Couldn’t open this call</h2>
       <p>{{ e }}</p>
       <div class="empty-actions">
-        <a mat-stroked-button routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> All calls</a>
+        <a mat-stroked-button [routerLink]="isGrantee() ? '/calls' : '/grant-calls'"><mat-icon>arrow_back</mat-icon> All calls</a>
         <button mat-flat-button (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button>
       </div>
     </div>
@@ -31,9 +35,17 @@
           @if (c.isCsrFunded) { <span class="chip"><mat-icon>verified</mat-icon>CSR</span> }
           @if (c.isForeignFunded) { <span class="chip"><mat-icon>public</mat-icon>Foreign funded</span> }
         </div>
-        <button mat-stroked-button class="copy" (click)="copyLink()">
-          <mat-icon>{{ copied() ? 'check' : 'link' }}</mat-icon> {{ copied() ? 'Link copied' : 'Copy link' }}
-        </button>
+        @if (isGrantee()) {
+          @if (canApply()) {
+            <a mat-flat-button [routerLink]="['/calls', c.id, 'apply']"><mat-icon>edit_document</mat-icon> Start proposal</a>
+          } @else {
+            <button mat-flat-button disabled>{{ phase() === 'upcoming' ? 'Not open yet' : 'Applications closed' }}</button>
+          }
+        } @else {
+          <button mat-stroked-button class="copy" (click)="copyLink()">
+            <mat-icon>{{ copied() ? 'check' : 'link' }}</mat-icon> {{ copied() ? 'Link copied' : 'Copy link' }}
+          </button>
+        }
       </div>
 
       @if (c.callCode) { <span class="code">{{ c.callCode }}</span> }
@@ -77,10 +89,17 @@
             } @else { — }
           </dd>
         </div>
-        <div>
-          <dt>Applications</dt>
-          <dd>{{ applicationsTotal() }}</dd>
-        </div>
+        @if (!isGrantee()) {
+          <div>
+            <dt>Applications</dt>
+            <dd>{{ applicationsTotal() }}</dd>
+          </div>
+        } @else {
+          <div>
+            <dt>Apply by</dt>
+            <dd>{{ c.closesAt ? (c.closesAt | date: 'd MMM y') : '—' }}</dd>
+          </div>
+        }
         <div>
           <dt>Reviewers / application</dt>
           <dd>{{ c.reviewersRequired }}</dd>
@@ -127,32 +146,46 @@
           }
         </section>
 
+        @if (!isGrantee()) {
         <!-- Applications -->
         <section class="surface-card block">
           <header>
             <mat-icon>inbox</mat-icon><h2>Applications</h2>
             <span class="pill">{{ applicationsTotal() }}</span>
           </header>
-          @if (applications().length) {
+          @if (applicationsTotal(); as total) {
             <ul class="apps">
-              @for (a of applications(); track a.id) {
+              @for (r of recentApplications(); track r.app.id) {
                 <li>
-                  <span class="avatar"><mat-icon>apartment</mat-icon></span>
-                  <div class="info">
-                    <span class="title">{{ a.title || a.referenceCode || 'Application #' + a.id }}</span>
-                    <span class="muted">{{ a.referenceCode }}{{ a.submittedAt ? ' · submitted ' + (a.submittedAt | date: 'd MMM y') : '' }}</span>
-                  </div>
-                  @if (a.requestedAmountMinor != null) {
-                    <span class="amount">{{ a.requestedAmountMinor / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }}</span>
-                  }
-                  <span class="state">{{ a.state ? (a.state | titlecase) : 'Draft' }}</span>
+                  <a class="app" [routerLink]="['/grant-calls', c.id, 'applications', r.app.id]">
+                    <span class="avatar"><mat-icon>apartment</mat-icon></span>
+                    <span class="info">
+                      <span class="title">{{ r.app.title || r.app.referenceCode || 'Application #' + r.app.id }}</span>
+                      <span class="muted">{{ r.applicant }}</span>
+                      @if (r.app.referenceCode || r.sentAt) {
+                        <span class="muted meta">{{ r.app.referenceCode }}{{ r.app.referenceCode && r.sentAt ? ' · ' : '' }}{{ r.sentAt ? 'Submitted ' + (r.sentAt | date: 'd MMM y') : '' }}</span>
+                      }
+                    </span>
+                    <span class="end">
+                      @if (r.app.requestedAmountMinor != null) {
+                        <span class="amount">{{ r.app.requestedAmountMinor / 100 | currency: r.app.currencyCode || c.currencyCode || 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</span>
+                      }
+                      <gm-status-chip [status]="r.app.status" />
+                    </span>
+                  </a>
                 </li>
               }
             </ul>
+            <div class="more">
+              <a mat-stroked-button [routerLink]="['/grant-calls', c.id, 'applications']">
+                {{ total === 1 ? 'View the applications list' : 'View all ' + total + ' applications' }}
+                <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+              </a>
+            </div>
           } @else {
             <div class="empty-state compact dashed">
               <span class="empty-icon"><mat-icon>mark_email_unread</mat-icon></span>
-              <h2>No applications yet</h2>
+              <h3>No applications yet</h3>
               <p>
                 @switch (phase()) {
                   @case ('live') { Applications will appear here as grantees submit them. Share the link to spread the word. }
@@ -164,6 +197,19 @@
             </div>
           }
         </section>
+        } @else {
+          <section class="surface-card block apply-cta">
+            <span class="empty-icon"><mat-icon>edit_document</mat-icon></span>
+            <div>
+              <h2>Ready to apply?</h2>
+              <p class="muted">Your proposal covers your project, answers to the questions above and a budget.
+                You can save a draft and submit it later.</p>
+            </div>
+            @if (canApply()) {
+              <a mat-flat-button [routerLink]="['/calls', c.id, 'apply']">Start proposal</a>
+            }
+          </section>
+        }
       </div>
 
       <aside class="side stack">

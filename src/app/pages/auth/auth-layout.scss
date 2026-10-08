@@ -12,6 +12,7 @@
   color: var(--mat-sys-primary);
   font: var(--mat-sys-title-large); font-weight: 700; letter-spacing: -0.02em;
   mat-icon { font-size: 30px; width: 30px; height: 30px; }
+  .brand-suffix { font-weight: 500; color: var(--mat-sys-on-surface-variant); }
 }
 
 .hero {

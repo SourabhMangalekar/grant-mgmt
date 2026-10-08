@@ -18,6 +18,8 @@ import { StatusChip } from '../../../core/status-chip';
 export class GranteeHome {
   private readonly service = inject(GranteeService);
   private readonly auth = inject(AuthStore);
+  constructor() { this.service.load(); }
+
   protected readonly org = computed(() => this.auth.user()?.tenantName ?? 'your organisation');
   protected readonly stats = this.service.stats;
   protected readonly recent = computed(() =>

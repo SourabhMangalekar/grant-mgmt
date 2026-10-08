@@ -1,0 +1,89 @@
+@let r = report();
+@let t = tranche();
+@let cur = currency();
+@let gap = gapMinor();
+
+<div class="report-view">
+  <div class="meta">
+    <gm-tranche-state [state]="r.state" />
+    <span>Attempt {{ r.attempt || 1 }}</span>
+    @if (r.submittedAt) { <span>Submitted {{ r.submittedAt | date: 'd MMM y' }}</span> }
+  </div>
+
+  @if (r.reviewComment) {
+    @let note = review();
+    <div class="callout" [class.changes]="note.tone === 'changes'" [class.approved]="note.tone === 'approved'">
+      <mat-icon aria-hidden="true">{{ note.icon }}</mat-icon>
+      <div class="callout-body">
+        <span class="callout-title">{{ note.title }}</span>
+        <p class="callout-text">{{ r.reviewComment }}</p>
+        @if (r.reviewedAt) { <span class="callout-meta">{{ r.reviewedAt | date: 'd MMM y' }}</span> }
+      </div>
+    </div>
+  }
+
+  <div class="block">
+    <span class="label-mono">Summary</span>
+    @if (r.summary) { <p class="summary">{{ r.summary }}</p> } @else { <p class="muted summary">No summary given.</p> }
+  </div>
+
+  <div class="totals" [class.ok]="gap >= 0" [class.over]="gap < 0">
+    <div class="figure"><span class="label-mono">Spent</span><strong>{{ spentMinor() / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong></div>
+    <div class="figure"><span class="label-mono">This tranche</span><strong>{{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong></div>
+    <div class="gap">
+      @if (gap >= 0) { <mat-icon aria-hidden="true">check_circle</mat-icon> } @else { <mat-icon aria-hidden="true">warning</mat-icon> }
+      <span>
+        @if (gap === 0) { Fully spent }
+        @else if (gap > 0) { {{ gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} unspent }
+        @else { {{ -gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} over this tranche }
+      </span>
+    </div>
+    <span class="bar" aria-hidden="true"><span [style.width.%]="spentPct()"></span></span>
+  </div>
+
+  @if (lines().length) {
+    <div class="block">
+      <span class="label-mono" [id]="uid + '-lines'">How each activity went</span>
+      <ul class="lines" [attr.aria-labelledby]="uid + '-lines'">
+        @for (line of lines(); track line.key) {
+          <li class="line">
+            <div class="line-head">
+              <span class="activity">{{ line.activity }}</span>
+              @if (line.item; as item) {
+                @let d = delivery[item.deliveryState];
+                @if (d) {
+                  <span [class]="'delivery ' + d.tone"><mat-icon aria-hidden="true">{{ d.icon }}</mat-icon>{{ d.label }}</span>
+                }
+              } @else {
+                <span class="delivery none"><mat-icon aria-hidden="true">help</mat-icon>Not reported</span>
+              }
+            </div>
+            @if (line.item; as item) {
+              <span class="spent">
+                Spent <strong>{{ (item.spentMinor ?? 0) / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong>
+                @if (line.plannedMinor != null) { of {{ line.plannedMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} planned }
+              </span>
+              @if (item.remark) { <p class="remark">{{ item.remark }}</p> }
+            } @else if (line.plannedMinor != null) {
+              <span class="spent muted">{{ line.plannedMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} planned</span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+
+  @if (r.ucFileName || r.photosFileName) {
+    <div class="block">
+      <span class="label-mono">Supporting files</span>
+      <ul class="files">
+        @if (r.ucFileName) {
+          <li><mat-icon aria-hidden="true">description</mat-icon><span class="what">Utilisation certificate</span><span class="name">{{ r.ucFileName }}</span></li>
+        }
+        @if (r.photosFileName) {
+          <li><mat-icon aria-hidden="true">photo_library</mat-icon><span class="what">Photos</span><span class="name">{{ r.photosFileName }}</span></li>
+        }
+      </ul>
+    </div>
+  }
+</div>

@@ -1,0 +1,195 @@
+<div class="page">
+  <a class="back-link" [routerLink]="['/calls', id()]"><mat-icon>arrow_back</mat-icon> Back to the call</a>
+
+  @if (loading()) {
+    <div class="loading-state"><mat-spinner diameter="32" /></div>
+  } @else if (loadError(); as e) {
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>error_outline</mat-icon></span>
+      <h2>Can’t start a proposal</h2>
+      <p>{{ e }}</p>
+      <div class="empty-actions"><a mat-stroked-button routerLink="/calls"><mat-icon>arrow_back</mat-icon> Open calls</a></div>
+    </div>
+  } @else if (call(); as c) {
+    <header class="page-header">
+      <div>
+        <span class="eyebrow">New proposal</span>
+        <h1>{{ c.title }}</h1>
+        <p>
+          {{ c.theme || 'Call for proposals' }}
+          @if (c.maxAwardMinor != null) {
+            · {{ amountMin() | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }}
+            to {{ c.maxAwardMinor / 100 | currency: c.currencyCode || 'INR' : 'symbol' : '1.0-0' }} per award
+          }
+          @if (c.closesAt) { · apply by {{ c.closesAt | date: 'd MMM y' }} }
+        </p>
+      </div>
+    </header>
+
+    @if (debug) {
+      <div class="auth-alert info" role="status"><mat-icon>bug_report</mat-icon> Debug mode: the proposal is prefilled with test data (environment.debugMode = 1).</div>
+    }
+    @if (error(); as e) {
+      <div class="auth-alert error" role="alert"><mat-icon>error</mat-icon> {{ e }}</div>
+    }
+
+    <form class="stack" [formGroup]="form" (ngSubmit)="save('submit')" novalidate>
+      <!-- 1. Project -->
+      <section class="surface-card section">
+        <h2><span class="step">1</span> Your project</h2>
+        <mat-form-field appearance="outline">
+          <mat-label>Proposal title</mat-label>
+          <input matInput formControlName="title" autocomplete="off" [attr.maxlength]="limits.title">
+          @if (form.controls.title.hasError('required')) { <mat-error>Give your proposal a title</mat-error> }
+          @else if (form.controls.title.hasError('maxlength')) { <mat-error>Keep the title to {{ limits.title }} characters or fewer</mat-error> }
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Project summary</mat-label>
+          <textarea matInput formControlName="summary" [attr.maxlength]="limits.text"
+                    cdkTextareaAutosize cdkAutosizeMinRows="5" cdkAutosizeMaxRows="14"
+                    placeholder="What you’ll do, for whom, where, and what will change."></textarea>
+          <mat-hint align="end">{{ form.controls.summary.value.length }} / {{ limits.text }}</mat-hint>
+          @if (form.controls.summary.hasError('required')) { <mat-error>Summarise your project</mat-error> }
+          @else if (form.controls.summary.hasError('maxlength')) { <mat-error>Keep the summary to {{ limits.text }} characters or fewer</mat-error> }
+        </mat-form-field>
+        <div class="row-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Amount requested</mat-label>
+            <span matTextPrefix>₹&nbsp;</span>
+            <input matInput type="number" inputmode="numeric" step="1" autocomplete="off" formControlName="requestedAmount"
+                   [attr.min]="amountMin()" [attr.max]="amountMax()">
+            @if (amountMax() != null) {
+              <mat-hint>Between {{ amountMin() | currency: 'INR' : 'symbol' : '1.0-0' }} and {{ amountMax() | currency: 'INR' : 'symbol' : '1.0-0' }}</mat-hint>
+            } @else {
+              <mat-hint>At least {{ amountMin() | currency: 'INR' : 'symbol' : '1.0-0' }}</mat-hint>
+            }
+            @if (form.controls.requestedAmount.hasError('required')) { <mat-error>Enter the amount you’re requesting</mat-error> }
+            @else if (form.controls.requestedAmount.hasError('min')) { <mat-error>This call’s minimum award is {{ amountMin() | currency: 'INR' : 'symbol' : '1.0-0' }}</mat-error> }
+            @else if (form.controls.requestedAmount.hasError('max')) { <mat-error>This call’s maximum award is {{ amountMax() | currency: 'INR' : 'symbol' : '1.0-0' }}</mat-error> }
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Project duration</mat-label>
+            <input matInput type="number" inputmode="numeric" step="1" autocomplete="off" formControlName="durationMonths"
+                   [attr.min]="limits.durationMin" [attr.max]="limits.durationMax">
+            <span matTextSuffix>&nbsp;months</span>
+            <mat-hint>{{ limits.durationMin }}–{{ limits.durationMax }} months</mat-hint>
+            @if (form.controls.durationMonths.hasError('required')) { <mat-error>Enter the project duration</mat-error> }
+            @else if (form.controls.durationMonths.hasError('min') || form.controls.durationMonths.hasError('max')) {
+              <mat-error>Between {{ limits.durationMin }} and {{ limits.durationMax }} months</mat-error>
+            }
+            @else if (form.controls.durationMonths.hasError('wholeNumber')) { <mat-error>Use whole months</mat-error> }
+          </mat-form-field>
+        </div>
+      </section>
+
+      <!-- 2. Funder's questions -->
+      @if (questions().length) {
+        <section class="surface-card section">
+          <h2><span class="step">2</span> The funder’s questions</h2>
+          @for (q of questions(); track q.id; let i = $index) {
+            <div class="question">
+              <label class="q-label" [for]="'answer-' + i"><span class="qn">{{ q.id }}</span> {{ q.text }}</label>
+              <mat-form-field appearance="outline">
+                <textarea matInput [id]="'answer-' + i" [formControl]="answers.at(i)" [attr.maxlength]="limits.text"
+                          cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="12"></textarea>
+                <mat-hint align="end">{{ answers.at(i).value.length }} / {{ limits.text }}</mat-hint>
+                @if (answers.at(i).hasError('required')) { <mat-error>Answer this question</mat-error> }
+                @else if (answers.at(i).hasError('maxlength')) { <mat-error>Keep your answer to {{ limits.text }} characters or fewer</mat-error> }
+              </mat-form-field>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- 3. Budget -->
+      <section class="surface-card section">
+        <h2><span class="step">{{ questions().length ? 3 : 2 }}</span> Budget</h2>
+        <p class="muted intro">List what the money will be spent on. The lines must add up to the amount you’re requesting.</p>
+
+        <div class="lines">
+          @for (line of lines.controls; track line; let i = $index) {
+            <div class="line" [formGroup]="line">
+              <mat-form-field appearance="outline" class="head">
+                <mat-label>Head</mat-label>
+                <mat-select formControlName="head">
+                  @for (h of heads; track h) { <mat-option [value]="h">{{ h }}</mat-option> }
+                </mat-select>
+                @if (line.controls.head.hasError('required')) { <mat-error>Choose a head</mat-error> }
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="item">
+                <mat-label>Item</mat-label>
+                <input matInput formControlName="item" autocomplete="off" [attr.maxlength]="limits.item">
+                @if (line.controls.item.hasError('required')) { <mat-error>Describe the item</mat-error> }
+                @else if (line.controls.item.hasError('maxlength')) { <mat-error>Max {{ limits.item }} characters</mat-error> }
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="qty">
+                <mat-label>Qty</mat-label>
+                <input matInput type="number" inputmode="numeric" step="1" autocomplete="off" formControlName="quantity"
+                       [attr.min]="limits.quantityMin">
+                @if (line.controls.quantity.hasError('required')) { <mat-error>Required</mat-error> }
+                @else if (line.controls.quantity.hasError('min')) { <mat-error>Min {{ limits.quantityMin }}</mat-error> }
+                @else if (line.controls.quantity.hasError('wholeNumber')) { <mat-error>No decimals</mat-error> }
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="cost">
+                <mat-label>Unit cost</mat-label>
+                <span matTextPrefix>₹&nbsp;</span>
+                <input matInput type="number" inputmode="numeric" step="1" autocomplete="off" formControlName="unitCost"
+                       [attr.min]="limits.unitCostMin">
+                @if (line.controls.unitCost.hasError('required')) { <mat-error>Required</mat-error> }
+                @else if (line.controls.unitCost.hasError('min')) { <mat-error>At least {{ limits.unitCostMin | currency: 'INR' : 'symbol' : '1.0-0' }}</mat-error> }
+              </mat-form-field>
+              <span class="line-total">{{ lineTotals()[i] | currency: 'INR' : 'symbol' : '1.0-0' }}</span>
+              <button mat-icon-button type="button" (click)="removeLine(i)" [disabled]="lines.length === 1"
+                      [attr.aria-label]="'Remove budget line ' + (i + 1)"><mat-icon>delete</mat-icon></button>
+            </div>
+          }
+        </div>
+        <button mat-stroked-button type="button" class="add" (click)="addLine()"><mat-icon>add</mat-icon> Add budget line</button>
+
+        <div class="totals" [class.ok]="budgetGap() === 0">
+          <div><span class="label-mono">Budget total</span><strong>{{ budgetTotal() | currency: 'INR' : 'symbol' : '1.0-0' }}</strong></div>
+          <div><span class="label-mono">Requested</span><strong>{{ (form.controls.requestedAmount.value ?? 0) | currency: 'INR' : 'symbol' : '1.0-0' }}</strong></div>
+          <div class="gap">
+            <mat-icon>{{ budgetGap() === 0 ? 'check_circle' : 'warning' }}</mat-icon>
+            @if (budgetGap() === 0) { Budget matches your request }
+            @else if (budgetGap() > 0) { {{ budgetGap() | currency: 'INR' : 'symbol' : '1.0-0' }} still to allocate }
+            @else { {{ -budgetGap() | currency: 'INR' : 'symbol' : '1.0-0' }} over your request }
+          </div>
+        </div>
+
+        <mat-form-field appearance="outline" class="note">
+          <mat-label>Budget notes (optional)</mat-label>
+          <textarea matInput formControlName="budgetNote" [attr.maxlength]="limits.note"
+                    cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+          <mat-hint align="end">{{ form.controls.budgetNote.value.length }} / {{ limits.note }}</mat-hint>
+          @if (form.controls.budgetNote.hasError('maxlength')) { <mat-error>Keep the note to {{ limits.note }} characters or fewer</mat-error> }
+        </mat-form-field>
+      </section>
+
+      <!-- 4. Documents & declaration -->
+      <section class="surface-card section">
+        <h2><span class="step">{{ questions().length ? 4 : 3 }}</span> Documents &amp; declaration</h2>
+        @if (requiredDocs().length) {
+          <p class="muted intro">The funder will ask for these documents during review. Keep them ready:</p>
+          <ul class="docs">
+            @for (d of requiredDocs(); track d) { <li><mat-icon>description</mat-icon>{{ d }}</li> }
+          </ul>
+        }
+        <mat-checkbox formControlName="consent" class="consent">
+          I confirm the information in this proposal is accurate, and I’m authorised to apply on behalf of my organisation.
+        </mat-checkbox>
+      </section>
+
+      <div class="actions">
+        <a mat-button [routerLink]="['/calls', id()]">Cancel</a>
+        <span class="spacer"></span>
+        <button mat-stroked-button type="button" (click)="save('draft')" [disabled]="saving()">
+          @if (saving() === 'draft') { <mat-spinner diameter="18" /> } @else { Save draft }
+        </button>
+        <button mat-flat-button type="submit" [disabled]="saving()">
+          @if (saving() === 'submit') { <mat-spinner diameter="18" /> } @else { <ng-container><mat-icon>send</mat-icon> Submit proposal</ng-container> }
+        </button>
+      </div>
+    </form>
+  }
+</div>

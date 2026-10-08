@@ -1,0 +1,95 @@
+@let t = tranche();
+@let cur = currency();
+@let gap = gapMinor();
+
+<form class="plan-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <p class="intro muted">
+    List what you’ll do with this tranche’s {{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}.
+    The activities’ budgets must add up to exactly that amount.
+    @if (t.reportDueAt) { You’ll report on them by {{ t.reportDueAt | date: 'd MMM y' }}. }
+  </p>
+
+  <div class="rows" formArrayName="rows">
+    @for (row of rows.controls; track row; let i = $index) {
+      <div class="row" [formGroupName]="i" role="group" [attr.aria-labelledby]="uid + '-row-' + i">
+        <span class="row-head">
+          <span class="no" aria-hidden="true">{{ i + 1 }}</span>
+          <span class="row-title label-mono" [id]="uid + '-row-' + i">Activity {{ i + 1 }}</span>
+        </span>
+
+        <mat-form-field appearance="outline" class="f-activity" subscriptSizing="dynamic">
+          <mat-label>Activity</mat-label>
+          <input matInput class="activity-input" formControlName="activity" autocomplete="off" required
+                 [attr.maxlength]="limits.activity" placeholder="e.g. Training for SHG leaders">
+          @if (row.controls.activity.hasError('required')) { <mat-error>Describe the activity</mat-error> }
+          @else if (row.controls.activity.hasError('maxlength')) { <mat-error>Keep it to {{ limits.activity }} characters</mat-error> }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="f-output" subscriptSizing="dynamic">
+          <mat-label>Expected output</mat-label>
+          <input matInput formControlName="expectedOutput" autocomplete="off" [attr.maxlength]="limits.output"
+                 placeholder="e.g. 40 leaders trained">
+          <mat-hint>Optional</mat-hint>
+          @if (row.controls.expectedOutput.hasError('maxlength')) { <mat-error>Keep it to {{ limits.output }} characters</mat-error> }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="f-budget" subscriptSizing="dynamic">
+          <mat-label>Budget</mat-label>
+          <span matTextPrefix>{{ symbol() }}&nbsp;</span>
+          <input matInput type="number" inputmode="decimal" step="0.01" autocomplete="off" formControlName="budget"
+                 [attr.min]="limits.budgetMin">
+          @if (row.controls.budget.hasError('required')) { <mat-error>Enter a budget</mat-error> }
+          @else if (row.controls.budget.hasError('min')) { <mat-error>At least {{ limits.budgetMin | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</mat-error> }
+          @else if (row.controls.budget.hasError('paise')) { <mat-error>Use at most 2 decimal places</mat-error> }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="f-date" subscriptSizing="dynamic">
+          <mat-label>By date</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="byDate" autocomplete="off" placeholder="DD/MM/YYYY">
+          <mat-datepicker-toggle matIconSuffix [for]="picker" />
+          <mat-datepicker #picker />
+          <mat-hint>Optional</mat-hint>
+          @if (row.controls.byDate.hasError('matDatepickerParse')) { <mat-error>Enter a date as DD/MM/YYYY</mat-error> }
+        </mat-form-field>
+
+        <button mat-icon-button type="button" class="remove" (click)="removeRow(i)" [disabled]="rows.length === 1 || busy()"
+                [attr.aria-label]="'Remove activity ' + (i + 1)"><mat-icon>delete</mat-icon></button>
+      </div>
+    }
+  </div>
+
+  <div class="add-line">
+    <button mat-stroked-button type="button" (click)="addRow()" [disabled]="rows.length >= limits.rows || busy()">
+      <mat-icon>add</mat-icon> Add activity
+    </button>
+    @if (rows.length >= limits.rows) { <span class="muted">That’s the most one plan can hold ({{ limits.rows }}).</span> }
+  </div>
+
+  <div class="totals" [class.ok]="gap === 0" [class.over]="gap < 0">
+    <div class="figure"><span class="label-mono">Planned</span><strong>{{ totalMinor() / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}</strong></div>
+    <div class="figure"><span class="label-mono">This tranche</span><strong>{{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}</strong></div>
+    <div class="gap">
+      @if (gap === 0) { <mat-icon aria-hidden="true">check_circle</mat-icon> } @else { <mat-icon aria-hidden="true">warning</mat-icon> }
+      <span>
+        @if (gap === 0) { Matches this tranche }
+        @else if (gap > 0) { {{ gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} still to plan }
+        @else { {{ -gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} over this tranche }
+      </span>
+    </div>
+  </div>
+
+  @if (problem(); as p) {
+    <div class="auth-alert error problem" role="alert" #problemEl tabindex="-1">
+      <mat-icon>error</mat-icon><span class="text">{{ p }}</span>
+    </div>
+  }
+
+  <div class="actions">
+    <button mat-button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+    <button mat-flat-button type="submit" [disabled]="busy()" disabledInteractive>
+      @if (busy()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+      @else { <mat-icon>send</mat-icon> }
+      {{ busy() ? 'Saving…' : submitLabel() }}
+    </button>
+  </div>
+</form>

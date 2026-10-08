@@ -1,0 +1,76 @@
+@use 'breakpoints' as bp;
+
+.page { max-width: 960px; }
+.page-header h1 { font-size: clamp(24px, 3vw, 32px); }
+
+.section {
+  display: flex; flex-direction: column; gap: var(--gm-space-1);
+  padding: var(--gm-card-pad);
+  mat-form-field { width: 100%; }
+}
+h2 {
+  display: flex; align-items: center; gap: var(--gm-space-3);
+  font: var(--mat-sys-title-medium); margin: 0 0 var(--gm-space-3);
+}
+.step {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-label-large);
+}
+.intro { margin: 0 0 var(--gm-space-3); }
+.row-2 { display: grid; gap: 0 var(--gm-space-3); grid-template-columns: 1fr; @include bp.up(sm) { grid-template-columns: 1fr 1fr; } }
+
+.question + .question { margin-top: var(--gm-space-2); }
+.q-label { display: flex; gap: var(--gm-space-2); margin-bottom: var(--gm-space-2); font: var(--mat-sys-title-small); line-height: 1.5; }
+.qn { flex: none; font-family: var(--gm-font-mono); font-size: 12px; color: var(--mat-sys-primary); padding-top: 2px; }
+
+// Budget table: one row per line on wide screens, stacked below lg (the side nav takes 248px from md up,
+// which leaves too little room for six columns plus their error messages).
+.lines { display: flex; flex-direction: column; gap: var(--gm-space-2); }
+.line {
+  display: grid; align-items: center; gap: 0 var(--gm-space-2);
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: 'head head' 'item item' 'qty cost' 'total del';
+  padding-bottom: var(--gm-space-2); border-bottom: 1px solid var(--mat-sys-outline-variant);
+  @include bp.up(lg) {
+    grid-template-columns: 200px minmax(0, 1fr) 104px 150px 120px 40px;
+    grid-template-areas: 'head item qty cost total del';
+    padding-bottom: 0; border-bottom: 0;
+  }
+  .head { grid-area: head; } .item { grid-area: item; } .qty { grid-area: qty; } .cost { grid-area: cost; }
+  button { grid-area: del; justify-self: end; margin-bottom: 20px; }
+}
+.line-total {
+  grid-area: total; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;
+  margin-bottom: 20px; // align with fields (which reserve hint space)
+  @include bp.down(lg) { text-align: left; }
+}
+.add { align-self: flex-start; margin-top: var(--gm-space-2); }
+
+.totals {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-3) var(--gm-space-6);
+  margin: var(--gm-space-4) 0; padding: var(--gm-space-4);
+  border-radius: var(--gm-radius-md); background: var(--mat-sys-surface-container);
+  > div:not(.gap) { display: flex; flex-direction: column; gap: 2px; }
+  strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .gap { margin-left: auto; display: flex; align-items: center; gap: var(--gm-space-2); color: var(--gm-status-review); font: var(--mat-sys-label-large); }
+  &.ok .gap { color: var(--gm-status-approved); }
+}
+.note { margin-top: var(--gm-space-2); }
+
+.docs {
+  list-style: none; margin: 0 0 var(--gm-space-4); padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--gm-space-2);
+  li { display: flex; align-items: center; gap: var(--gm-space-2); }
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--mat-sys-primary); }
+}
+.consent { line-height: 1.5; }
+
+.actions {
+  position: sticky; bottom: 0; z-index: 1;
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-2);
+  padding: var(--gm-space-3) 0;
+  background: var(--mat-sys-surface-container-low);
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  .spacer { flex: 1; }
+}

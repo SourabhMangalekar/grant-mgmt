@@ -1,0 +1,173 @@
+<div class="page">
+  @if (notFound()) {
+    <a class="back-link" routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> Calls for proposals</a>
+  } @else {
+    <a class="back-link" [routerLink]="['/grant-calls', id()]"><mat-icon>arrow_back</mat-icon> Back to the call</a>
+  }
+
+  @if (state() === 'loading') {
+    <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading applications" /></div>
+  } @else if (state() === 'error') {
+    <header class="page-header">
+      <div><h1>Applications received</h1></div>
+    </header>
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>error_outline</mat-icon></span>
+      <h2>Couldn’t load the applications</h2>
+      <p>
+        @if (notFound()) { This call for proposals doesn’t exist or was removed. }
+        @else { The grant service didn’t respond. Check your connection and try again. }
+      </p>
+      <div class="empty-actions">
+        @if (notFound()) {
+          <a mat-flat-button routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> All calls</a>
+        } @else {
+          <a mat-stroked-button routerLink="/grant-calls"><mat-icon>arrow_back</mat-icon> All calls</a>
+          <button mat-flat-button type="button" (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button>
+        }
+      </div>
+    </div>
+  } @else if (call(); as c) {
+    <header class="page-header">
+      <div>
+        <span class="eyebrow">Applications received</span>
+        <h1>{{ c.title || 'Untitled call for proposals' }}</h1>
+        <p>
+          {{ summary().received }} application{{ summary().received === 1 ? '' : 's' }}
+          @if (c.callCode) { · <span class="code">{{ c.callCode }}</span> }
+          @if (c.closesAt) { · {{ hasClosed() ? 'closed' : 'closes' }} {{ c.closesAt | date: 'd MMM y' }} }
+        </p>
+      </div>
+    </header>
+
+    @if (rows().length) {
+      <!-- Summary -->
+      <section class="surface-card summary" aria-label="Summary">
+        <dl>
+          <div>
+            <dt class="label-mono">Received</dt>
+            <dd>{{ summary().received }}</dd>
+          </div>
+          <div>
+            <dt class="label-mono">Total requested</dt>
+            <dd>{{ summary().requestedMinor / 100 | currency: currency() : 'symbol' : '1.0-0' : 'en-IN' }}</dd>
+          </div>
+          @for (s of summary().byStatus; track s.status) {
+            <div>
+              <dt class="label-mono"><span class="dot" [class]="'dot ' + statusClass[s.status]"></span>{{ s.status }}</dt>
+              <dd>{{ s.count }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+
+      <!-- Filters -->
+      @if (rows().length > 1) {
+        <div class="filters">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search">
+            <mat-icon matPrefix>search</mat-icon>
+            <mat-label>Search</mat-label>
+            <input matInput #searchInput type="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
+                   placeholder="Title, reference or applicant…"
+                   [value]="query()" (input)="query.set(searchInput.value)">
+            @if (query()) {
+              <button mat-icon-button matSuffix type="button" aria-label="Clear search"
+                      (click)="query.set(''); searchInput.focus()">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+          </mat-form-field>
+          @if (statuses().length > 1) {
+            <div class="status-filter">
+              <mat-button-toggle-group [value]="status()" (change)="status.set($event.value)"
+                                       aria-label="Filter by status" hideSingleSelectionIndicator>
+                <mat-button-toggle value="">All</mat-button-toggle>
+                @for (s of statuses(); track s) { <mat-button-toggle [value]="s">{{ s }}</mat-button-toggle> }
+              </mat-button-toggle-group>
+            </div>
+          }
+        </div>
+      }
+
+      <div role="status">
+        @if (filtering()) {
+          <p class="result-count">Showing {{ filtered().length }} of {{ rows().length }} applications</p>
+        }
+      </div>
+
+      <!-- List -->
+      @if (filtered().length) {
+        <section class="list" aria-label="Applications">
+          <div class="list-head" aria-hidden="true">
+            <span>Proposal</span>
+            <span>Applicant</span>
+            <span class="num">Requested</span>
+            <span>Submitted</span>
+            <span>Status</span>
+            <span></span>
+          </div>
+          <ul class="rows">
+            @for (r of filtered(); track r.app.id) {
+              <li>
+                <a class="row" [routerLink]="['/grant-calls', id(), 'applications', r.app.id]">
+                  <span class="title">{{ r.title }}</span>
+                  <span class="ref"><span class="sr-only">Reference </span>{{ r.reference }}</span>
+                  <span class="applicant">
+                    <mat-icon>apartment</mat-icon>
+                    <span class="name"><span class="sr-only">from </span>{{ r.applicant }}</span>
+                  </span>
+                  <span class="amount">
+                    <span class="sr-only">Requested </span>
+                    {{ r.app.requestedAmountMinor != null
+                        ? (r.app.requestedAmountMinor / 100 | currency: r.app.currencyCode || currency() : 'symbol' : '1.0-0' : 'en-IN')
+                        : '—' }}
+                  </span>
+                  <span class="date">
+                    <span class="cell-label">Submitted </span>{{ r.sentAt ? (r.sentAt | date: 'd MMM y') : '—' }}
+                  </span>
+                  <span class="status"><gm-status-chip [status]="r.app.status" /></span>
+                  <mat-icon class="chevron">chevron_right</mat-icon>
+                </a>
+              </li>
+            }
+          </ul>
+        </section>
+      } @else {
+        <div class="surface-card empty-state">
+          <span class="empty-icon"><mat-icon>search_off</mat-icon></span>
+          <h2>No applications match your filters</h2>
+          <p>Try a different search or status.</p>
+          <div class="empty-actions">
+            <button mat-stroked-button type="button" (click)="clearFilters()"><mat-icon>filter_alt_off</mat-icon> Clear filters</button>
+          </div>
+        </div>
+      }
+    } @else {
+      <div class="surface-card empty-state">
+        <span class="empty-icon"><mat-icon>mark_email_unread</mat-icon></span>
+        <h2>No applications yet</h2>
+        <p>
+          @switch (phase()) {
+            @case ('upcoming') {
+              @if (c.opensAt) { The call opens on {{ c.opensAt | date: 'd MMM y' }}. }
+              Applications will appear here as grantees submit them.
+            }
+            @case ('live') {
+              @if (c.closesAt) { Grantees can apply until {{ c.closesAt | date: 'd MMM y' }}. }
+              @else { Grantees can apply now. }
+              Applications will appear here as they’re submitted.
+            }
+            @case ('closed') {
+              @if (c.closesAt) { The call closed on {{ c.closesAt | date: 'd MMM y' }} without applications. }
+              @else { The call closed without applications. }
+            }
+            @default { This call isn’t published yet. Publish it so grantees can start applying. }
+          }
+        </p>
+        <div class="empty-actions">
+          <a mat-stroked-button [routerLink]="['/grant-calls', id()]"><mat-icon>campaign</mat-icon> View the call</a>
+        </div>
+      </div>
+    }
+  }
+</div>

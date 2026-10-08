@@ -1,0 +1,60 @@
+// Shared look for the tranche plan/report forms and views. Theme tokens only, so light and dark both work.
+
+/** Text for screen readers only. */
+@mixin sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/** "Planned ₹X · This tranche ₹Y · status" strip under a list of rows. */
+@mixin totals {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-3) var(--gm-space-6);
+  padding: var(--gm-space-4); border-radius: var(--gm-radius-md); background: var(--mat-sys-surface-container);
+  .figure { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .figure strong { font: var(--mat-sys-title-large); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .gap {
+    flex: 1 1 14rem; display: flex; align-items: center; justify-content: flex-end; gap: var(--gm-space-2);
+    color: var(--gm-status-review); font: var(--mat-sys-label-large); text-align: right;
+    mat-icon { flex: none; }
+  }
+  &.ok .gap { color: var(--gm-status-approved); }
+  &.over .gap { color: var(--gm-status-rejected); }
+}
+
+/** Thin progress bar (spent vs tranche). */
+@mixin bar {
+  height: 8px; border-radius: 999px; overflow: hidden; background: var(--mat-sys-surface-container-high);
+  > span { display: block; height: 100%; border-radius: inherit; background: var(--mat-sys-primary); transition: width .3s; }
+}
+
+/** The funder's review comment. Amber when they asked for changes, green when they approved. */
+@mixin callout {
+  display: flex; gap: var(--gm-space-3); align-items: flex-start;
+  padding: var(--gm-space-3) var(--gm-space-4); border-radius: var(--gm-radius-md);
+  color: var(--mat-sys-on-surface); background: var(--mat-sys-surface-container);
+  border-left: 4px solid var(--mat-sys-outline);
+  > mat-icon { flex: none; margin-top: 2px; color: var(--mat-sys-on-surface-variant); }
+  .callout-body { min-width: 0; display: flex; flex-direction: column; gap: var(--gm-space-1); }
+  .callout-title { font: var(--mat-sys-title-small); }
+  .callout-text { margin: 0; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+  .callout-meta { font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); }
+  &.changes { border-left-color: var(--gm-status-review); background: var(--gm-status-review-bg);
+    > mat-icon, .callout-title { color: var(--gm-status-review); } }
+  &.approved { border-left-color: var(--gm-status-approved); background: var(--gm-status-approved-bg);
+    > mat-icon, .callout-title { color: var(--gm-status-approved); } }
+}
+
+/** Circled row number. */
+@mixin row-no {
+  display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-label-large); font-variant-numeric: tabular-nums;
+}
+
+/** Form-level problem shown after an invalid submit. */
+@mixin form-alert {
+  margin: 0;
+  &:focus { outline: none; }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .text { flex: 1; min-width: 0; line-height: 1.5; }
+}

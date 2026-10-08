@@ -1,0 +1,240 @@
+@let a = application();
+@let cur = currency();
+
+<section class="surface-card workflow" aria-labelledby="workflow-title">
+  <div class="head">
+    <h2 id="workflow-title"><mat-icon>gavel</mat-icon> Review &amp; decision</h2>
+  </div>
+
+  <!-- Where the application is in the chain -->
+  <ol class="steps" aria-label="Progress">
+    @for (s of steps; track s.stage; let i = $index) {
+      @let done = stepIndex() > i || stage() === 'approved' || stage() === 'rejected';
+      @let current = stepIndex() === i && !done;
+      <li [class.done]="done" [class.current]="current" [attr.aria-current]="current ? 'step' : null">
+        <span class="dot" aria-hidden="true">
+          @if (done) { <mat-icon>check</mat-icon> } @else { {{ i + 1 }} }
+        </span>
+        <span class="label">
+          @if (i === 3 && stage() === 'approved') { Approved }
+          @else if (i === 3 && stage() === 'rejected') { Rejected }
+          @else { {{ s.label }} }
+        </span>
+      </li>
+    }
+  </ol>
+
+  <!-- Outcome of the last step. The status region is always present so screen readers announce what appears in it. -->
+  <div role="status">
+    @if (success(); as m) {
+      <div class="auth-alert success outcome" #result tabindex="-1">
+        <mat-icon>check_circle</mat-icon><span class="text">{{ m }}</span>
+        <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+      </div>
+    }
+  </div>
+  @if (error(); as m) {
+    <div class="auth-alert error outcome" role="alert" #result tabindex="-1">
+      <mat-icon>error</mat-icon><span class="text">{{ m }}</span>
+      <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+    </div>
+  }
+
+  @switch (stage()) {
+    <!-- 1. Screening -->
+    @case ('screening') {
+      <div class="step-body">
+        <p>
+          Submitted and waiting for review.
+          @if (a.entryCheckResult) { Entry checks: <strong>{{ a.entryCheckResult }}</strong>@if (a.entryCheckReason) { ({{ a.entryCheckReason }})}. }
+          Start the review so reviewers can score it.
+        </p>
+        <div class="actions">
+          <button mat-flat-button type="button" (click)="startReview()" [disabled]="!!busy()" disabledInteractive>
+            @if (busy() === 'start') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+            @else { <mat-icon>play_arrow</mat-icon> }
+            {{ busy() === 'start' ? 'Starting…' : 'Start review' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- 2. Reviews, then the committee -->
+    @case ('review') {
+      <div class="step-body">
+        <div class="meter" role="group" aria-label="Reviews">
+          <span><strong>{{ submitted().length }} of {{ required() }}</strong> reviews submitted</span>
+          <span class="bar" aria-hidden="true"><span [style.width.%]="(submitted().length / required()) * 100 > 100 ? 100 : (submitted().length / required()) * 100"></span></span>
+        </div>
+
+        @if (showReviewForm()) {
+          <form class="review-form" [formGroup]="reviewForm" (ngSubmit)="submitReview()" novalidate>
+            <h3>{{ asColleague() ? 'Add a test review as a colleague' : 'Your review' }}</h3>
+            <div class="scores">
+              @for (c of criteria; track c.key) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ c.label }}</mat-label>
+                  <mat-select [formControlName]="c.key">
+                    @for (s of scores; track s.value) { <mat-option [value]="s.value">{{ s.label }}</mat-option> }
+                  </mat-select>
+                  @if (reviewForm.controls[c.key].hasError('required')) { <mat-error>Score {{ c.label.toLowerCase() }}</mat-error> }
+                </mat-form-field>
+              }
+            </div>
+            <div class="recommend">
+              <span class="field-label" id="rec-label">Recommendation</span>
+              <mat-button-toggle-group formControlName="recommendation" aria-labelledby="rec-label" hideSingleSelectionIndicator>
+                <mat-button-toggle value="APPROVE"><mat-icon>thumb_up</mat-icon> Fund it</mat-button-toggle>
+                <mat-button-toggle value="REJECT"><mat-icon>thumb_down</mat-icon> Don’t fund</mat-button-toggle>
+              </mat-button-toggle-group>
+              @if (previewScore(); as s) { <span class="total">Total score <strong>{{ s }}</strong> / 100</span> }
+            </div>
+            @if (reviewForm.controls.recommendation.touched && reviewForm.controls.recommendation.hasError('required')) {
+              <p class="field-error" role="alert">Choose a recommendation</p>
+            }
+            <mat-form-field appearance="outline">
+              <mat-label>Comment</mat-label>
+              <textarea matInput formControlName="comment" maxlength="2000" cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="8"
+                        placeholder="What convinced you, and what worries you?"></textarea>
+              <mat-hint align="end">{{ reviewForm.controls.comment.value.length }} / 2000</mat-hint>
+              @if (reviewForm.controls.comment.hasError('required')) { <mat-error>Add a comment for the committee</mat-error> }
+            </mat-form-field>
+            <mat-checkbox formControlName="conflictDeclared">I have a conflict of interest with this applicant</mat-checkbox>
+            <div class="actions">
+              @if (asColleague()) { <button mat-button type="button" (click)="asColleague.set(false)">Cancel</button> }
+              <button mat-flat-button type="submit" [disabled]="!!busy()" disabledInteractive>
+                @if (busy() === 'review') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon>rate_review</mat-icon> }
+                {{ busy() === 'review' ? 'Saving…' : 'Submit review' }}
+              </button>
+            </div>
+          </form>
+        } @else if (!enoughReviews()) {
+          <p class="muted">
+            You’ve submitted your review. {{ required() - submitted().length }} more
+            {{ required() - submitted().length === 1 ? 'review is' : 'reviews are' }} needed before the committee can sit.
+          </p>
+          @if (debug) {
+            <div class="actions">
+              <button mat-stroked-button type="button" (click)="asColleague.set(true)"><mat-icon>person_add</mat-icon> Add a test review as a colleague</button>
+            </div>
+          }
+        }
+
+        @if (disagreement(); as why) {
+          <div class="override" #result tabindex="-1">
+            <p class="why"><mat-icon>balance</mat-icon><span>{{ why }}</span></p>
+            <mat-form-field appearance="outline">
+              <mat-label>Why send it on anyway?</mat-label>
+              <textarea matInput [formControl]="overrideReason" maxlength="1000" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+              <mat-hint>Recorded in the audit trail.</mat-hint>
+              @if (overrideReason.hasError('required')) { <mat-error>Give a reason for overriding the reviewers</mat-error> }
+            </mat-form-field>
+            <div class="actions">
+              <button mat-button type="button" (click)="disagreement.set(null)">Cancel</button>
+              <button mat-flat-button type="button" (click)="sendToCommittee(true)" [disabled]="!!busy()" disabledInteractive>
+                @if (busy() === 'committee') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon>forward</mat-icon> }
+                {{ busy() === 'committee' ? 'Sending…' : 'Send to committee anyway' }}
+              </button>
+            </div>
+          </div>
+        } @else if (enoughReviews()) {
+          <div class="actions">
+            <button mat-flat-button type="button" (click)="sendToCommittee()" [disabled]="!!busy()" disabledInteractive>
+              @if (busy() === 'committee') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+              @else { <mat-icon>groups</mat-icon> }
+              {{ busy() === 'committee' ? 'Sending…' : 'Send to committee' }}
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- 3. Committee: approve or reject -->
+    @case ('committee') {
+      <div class="step-body">
+        <p>The reviews are in. Decide whether to fund it: either way, the applicant sees your comment.</p>
+        <mat-button-toggle-group class="choice" [value]="decision()" (change)="decision.set($event.value)" aria-label="Decision"
+                                 hideSingleSelectionIndicator>
+          <mat-button-toggle value="approve"><mat-icon>verified</mat-icon> Approve</mat-button-toggle>
+          <mat-button-toggle value="reject"><mat-icon>block</mat-icon> Reject</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        @if (decision() === 'approve') {
+          <form class="decide-form" [formGroup]="approveForm" (ngSubmit)="approve()" novalidate>
+            <mat-form-field appearance="outline">
+              <mat-label>Award amount</mat-label>
+              <span matTextPrefix>₹&nbsp;</span>
+              <input matInput type="number" inputmode="numeric" step="1" formControlName="amount"
+                     [attr.min]="minAmount()" [attr.max]="maxAmount()" autocomplete="off">
+              @if (minAmount() != null && maxAmount() != null) {
+                <mat-hint>Between {{ minAmount() | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} and {{ maxAmount() | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</mat-hint>
+              } @else if (maxAmount() != null) {
+                <mat-hint>Up to {{ maxAmount() | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</mat-hint>
+              }
+              @if (approveForm.controls.amount.hasError('required')) { <mat-error>Enter the amount to award</mat-error> }
+              @else if (approveForm.controls.amount.hasError('min')) { <mat-error>This call’s smallest grant is {{ minAmount() | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</mat-error> }
+              @else if (approveForm.controls.amount.hasError('max')) { <mat-error>This call’s largest grant is {{ maxAmount() | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</mat-error> }
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Comment for the applicant</mat-label>
+              <textarea matInput formControlName="comment" maxlength="1000" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+              @if (approveForm.controls.comment.hasError('required')) { <mat-error>A comment is required: the applicant sees it</mat-error> }
+            </mat-form-field>
+            <div class="actions">
+              <button mat-flat-button type="submit" [disabled]="!!busy()" disabledInteractive>
+                @if (busy() === 'approve') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon>verified</mat-icon> }
+                {{ busy() === 'approve' ? 'Approving…' : 'Approve and create award' }}
+              </button>
+            </div>
+          </form>
+        } @else {
+          <div class="decide-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Reason for the applicant</mat-label>
+              <textarea matInput [formControl]="rejectReason" maxlength="1000" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+              @if (rejectReason.hasError('required')) { <mat-error>A reason is required: the applicant sees it</mat-error> }
+            </mat-form-field>
+            <div class="actions">
+              <button mat-flat-button type="button" class="danger" (click)="reject()" [disabled]="!!busy()" disabledInteractive>
+                @if (busy() === 'reject') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon>block</mat-icon> }
+                {{ busy() === 'reject' ? 'Rejecting…' : 'Reject application' }}
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- 4. Decided -->
+    @case ('approved') {
+      <div class="step-body">
+        @if (award(); as w) {
+          <dl class="award">
+            <div><dt>Award</dt><dd class="mono">{{ w.awardCode || '#' + w.id }}</dd></div>
+            <div><dt>Amount</dt><dd>{{ w.awardedAmountMinor / 100 | currency: w.currencyCode || cur : 'symbol' : '1.0-0' : 'en-IN' }}</dd></div>
+            @if (w.state) { <div><dt>Award status</dt><dd>{{ awardState(w.state) }}</dd></div> }
+            @if (w.contractedAt) { <div><dt>Contracted</dt><dd>{{ w.contractedAt | date: 'd MMM y' }}</dd></div> }
+          </dl>
+        } @else {
+          <p>Approved. The award’s details will appear here once the grant service shares them.</p>
+        }
+        <!-- After approval the money is paid in tranches: set them up, review plans and reports, release payments. -->
+        <div class="actions">
+          <a mat-flat-button [routerLink]="['/grant-calls', a.grantCallId, 'applications', a.id, 'award']">
+            <mat-icon>account_tree</mat-icon> Manage grant &amp; tranches
+          </a>
+        </div>
+      </div>
+    }
+    @case ('rejected') {
+      <div class="step-body"><p>Rejected. The applicant has been told why.</p></div>
+    }
+    @default {
+      <div class="step-body"><p class="muted">This application is “{{ a.status }}”, so there’s no review step to take.</p></div>
+    }
+  }
+</section>

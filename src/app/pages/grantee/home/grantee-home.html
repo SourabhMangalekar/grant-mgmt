@@ -55,8 +55,8 @@
         @for (c of closingSoon(); track c.id) {
           <li>
             <div class="info">
-              <span class="title">{{ c.title }}</span>
-              <span class="muted">{{ c.funder }} · up to {{ c.maxAmount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</span>
+              <a class="title link" [routerLink]="['/calls', c.id]">{{ c.title }}</a>
+              <span class="muted">{{ c.program }} · up to {{ c.maxAmount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</span>
             </div>
             <span class="muted">{{ c.deadline | date: 'd MMM' }}</span>
           </li>

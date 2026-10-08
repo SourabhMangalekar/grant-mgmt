@@ -1,0 +1,132 @@
+@let t = tranche();
+@let cur = currency();
+@let gap = gapMinor();
+
+<form class="report-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <p class="intro muted">
+    Tell the funder how each planned activity went and what it cost. Spending can come in under this tranche’s
+    {{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}, but not over it.
+  </p>
+
+  @if (items().length) {
+    <div class="rows" formArrayName="rows">
+      @for (row of rows.controls; track row; let i = $index) {
+        @let item = items()[i];
+        @let state = row.controls.deliveryState.value;
+        @let stateMissing = row.controls.deliveryState.touched && row.controls.deliveryState.hasError('required');
+        <div class="row" [formGroupName]="i" role="group" [attr.aria-labelledby]="uid + '-item-' + i">
+          <div class="item-head">
+            <span class="no" aria-hidden="true">{{ i + 1 }}</span>
+            <div class="item-text">
+              <span class="item-title" [id]="uid + '-item-' + i">{{ item.activity }}</span>
+              <span class="item-meta">
+                Planned {{ item.budgetMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}
+                @if (item.date) { · by {{ item.date | date: 'd MMM y' }} }
+              </span>
+              @if (item.expectedOutput) { <span class="item-meta">Expected: {{ item.expectedOutput }}</span> }
+            </div>
+          </div>
+
+          <div class="delivery">
+            <mat-button-toggle-group formControlName="deliveryState" (change)="stateChanged(i)"
+                                     [attr.aria-label]="'How did “' + item.activity + '” go?'"
+                                     [attr.aria-describedby]="stateMissing ? uid + '-state-error-' + i : null">
+              @for (s of states; track s.value) {
+                <mat-button-toggle [value]="s.value" [attr.data-state]="s.value">{{ s.label }}</mat-button-toggle>
+              }
+            </mat-button-toggle-group>
+            @if (stateMissing) { <p class="field-error" [id]="uid + '-state-error-' + i">Choose how it went</p> }
+          </div>
+
+          <mat-form-field appearance="outline" class="f-spent" subscriptSizing="dynamic">
+            <mat-label>Amount spent</mat-label>
+            <span matTextPrefix>{{ symbol() }}&nbsp;</span>
+            <input matInput type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off" formControlName="spent">
+            <mat-hint>Planned {{ item.budgetMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}</mat-hint>
+            @if (row.controls.spent.hasError('required')) { <mat-error>Enter what was spent ({{ symbol() }}0 if nothing)</mat-error> }
+            @else if (row.controls.spent.hasError('min')) { <mat-error>The amount can’t be negative</mat-error> }
+            @else if (row.controls.spent.hasError('paise')) { <mat-error>Use at most 2 decimal places</mat-error> }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="f-remark" subscriptSizing="dynamic">
+            <mat-label>Remark</mat-label>
+            <textarea matInput formControlName="remark" [attr.maxlength]="limits.remark" cdkTextareaAutosize
+                      cdkAutosizeMinRows="1" cdkAutosizeMaxRows="5" [required]="!!state && state !== 'DONE'"
+                      [placeholder]="state && state !== 'DONE' ? 'What got in the way?' : 'Anything worth knowing'"></textarea>
+            @if (!state || state === 'DONE') { <mat-hint>Optional</mat-hint> }
+            @if (row.controls.remark.hasError('explain')) {
+              <mat-error>Say why it’s {{ state === 'NOT_DONE' ? 'not done' : 'only partly done' }}</mat-error>
+            } @else if (row.controls.remark.hasError('maxlength')) {
+              <mat-error>Keep it to {{ limits.remark }} characters</mat-error>
+            }
+          </mat-form-field>
+        </div>
+      }
+    </div>
+
+    <div class="totals" [class.ok]="gap >= 0" [class.over]="gap < 0">
+      <div class="figure"><span class="label-mono">Spent</span><strong>{{ spentMinor() / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}</strong></div>
+      <div class="figure"><span class="label-mono">This tranche</span><strong>{{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }}</strong></div>
+      <div class="gap">
+        @if (gap >= 0) { <mat-icon aria-hidden="true">check_circle</mat-icon> } @else { <mat-icon aria-hidden="true">warning</mat-icon> }
+        <span>
+          @if (gap === 0) { Fully spent }
+          @else if (gap > 0) { {{ gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} unspent }
+          @else { {{ -gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} over this tranche }
+        </span>
+      </div>
+      <span class="bar" aria-hidden="true"><span [style.width.%]="spentPct()"></span></span>
+    </div>
+  } @else {
+    <p class="auth-alert info no-items">
+      <mat-icon>info</mat-icon>
+      <span>This tranche’s plan has no activities to report on one by one, so just summarise how the money was used.</span>
+    </p>
+  }
+
+  <mat-form-field appearance="outline" class="f-summary">
+    <mat-label>Summary</mat-label>
+    <textarea matInput formControlName="summary" required [attr.maxlength]="limits.summary" cdkTextareaAutosize
+              cdkAutosizeMinRows="3" cdkAutosizeMaxRows="10"
+              placeholder="What did this tranche achieve? Anything the funder should know?"></textarea>
+    <mat-hint align="end">{{ summaryLength() }} / {{ limits.summary }}</mat-hint>
+    @if (form.controls.summary.hasError('required')) { <mat-error>Write a short summary for the funder</mat-error> }
+    @else if (form.controls.summary.hasError('maxlength')) { <mat-error>Keep it to {{ limits.summary }} characters</mat-error> }
+  </mat-form-field>
+
+  <div class="files" role="group" [attr.aria-labelledby]="uid + '-files'">
+    <span class="label-mono" [id]="uid + '-files'">Supporting files</span>
+    <p class="muted files-note">Uploads aren’t available yet. Give the file names so the funder knows what to look for.</p>
+    <div class="file-fields">
+      <mat-form-field appearance="outline">
+        <mat-label>Utilisation certificate</mat-label>
+        <mat-icon matIconPrefix aria-hidden="true">description</mat-icon>
+        <input matInput formControlName="ucFileName" autocomplete="off" [attr.maxlength]="limits.fileName" placeholder="UC-tranche-1.pdf">
+        <mat-hint>Optional file name</mat-hint>
+        @if (form.controls.ucFileName.hasError('maxlength')) { <mat-error>Keep it to {{ limits.fileName }} characters</mat-error> }
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Photos</mat-label>
+        <mat-icon matIconPrefix aria-hidden="true">photo_library</mat-icon>
+        <input matInput formControlName="photosFileName" autocomplete="off" [attr.maxlength]="limits.fileName" placeholder="tranche-1-photos.zip">
+        <mat-hint>Optional file name</mat-hint>
+        @if (form.controls.photosFileName.hasError('maxlength')) { <mat-error>Keep it to {{ limits.fileName }} characters</mat-error> }
+      </mat-form-field>
+    </div>
+  </div>
+
+  @if (problem(); as p) {
+    <div class="auth-alert error problem" role="alert" #problemEl tabindex="-1">
+      <mat-icon>error</mat-icon><span class="text">{{ p }}</span>
+    </div>
+  }
+
+  <div class="actions">
+    <button mat-button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+    <button mat-flat-button type="submit" [disabled]="busy()" disabledInteractive>
+      @if (busy()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+      @else { <mat-icon>send</mat-icon> }
+      {{ busy() ? 'Saving…' : submitLabel() }}
+    </button>
+  </div>
+</form>

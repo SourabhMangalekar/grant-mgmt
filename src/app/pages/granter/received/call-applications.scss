@@ -1,0 +1,155 @@
+@use 'breakpoints' as bp;
+
+@mixin sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.sr-only { @include sr-only; }
+
+.page-header {
+  h1 { overflow-wrap: anywhere; text-wrap: balance; }
+  .code { font-family: var(--gm-font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
+}
+
+// ── Summary strip ───────────────────────────────────────────────────────
+.summary {
+  margin-bottom: var(--gm-section-gap);
+  padding: var(--gm-space-4) var(--gm-card-pad);
+  dl {
+    display: grid; gap: var(--gm-space-4); margin: 0;
+    grid-template-columns: repeat(auto-fit, minmax(min(8.5rem, 100%), 1fr));
+  }
+  dt { display: flex; align-items: center; gap: 6px; }
+  dd {
+    margin: var(--gm-space-1) 0 0;
+    font-size: 22px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+    @include bp.down(sm) { font-size: 18px; }
+  }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  .review   { background: var(--gm-status-review); }
+  .screening { background: var(--gm-status-screening); }
+  .committee { background: var(--gm-status-committee); }
+  .approved { background: var(--gm-status-approved); }
+  .rejected { background: var(--gm-status-rejected); }
+  .closed   { background: var(--gm-status-closed); }
+}
+
+// ── Filters ─────────────────────────────────────────────────────────────
+.filters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-3);
+  margin-bottom: var(--gm-space-4);
+  .search { flex: 1 1 280px; min-width: 0; }
+}
+// Scrolls sideways on its own (never the page) if the toggles don't fit a phone.
+.status-filter {
+  display: flex; max-width: 100%; overflow-x: auto; padding: 2px;
+  mat-button-toggle-group { flex: none; }
+}
+.result-count {
+  margin: 0 0 var(--gm-space-3);
+  font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant);
+}
+
+// ── List: stacked cards below lg, one table-like row per application from lg ──
+// (Not md: the docked side nav leaves too little width there for the two flexible columns.)
+$cols: minmax(0, 2fr) minmax(0, 1.4fr) 8.5rem 7rem 7.5rem 1.5rem;
+
+.list-head { display: none; }
+.rows {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: var(--gm-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  li { display: flex; min-width: 0; }
+}
+
+.row {
+  flex: 1; min-width: 0;
+  display: grid; align-items: center; gap: var(--gm-space-1) var(--gm-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'ref       status'
+    'title     title'
+    'applicant applicant'
+    'amount    date';
+  padding: var(--gm-space-4);
+  color: inherit; text-decoration: none;
+  background: var(--mat-sys-surface-container-lowest);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--gm-radius-lg);
+  transition: border-color .15s, background-color .15s;
+  &:hover { border-color: var(--mat-sys-primary); }
+  &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+}
+
+.title {
+  grid-area: title;
+  font: var(--mat-sys-title-small); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.ref {
+  grid-area: ref; min-width: 0;
+  font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.04em;
+  color: var(--mat-sys-on-surface-variant);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.applicant {
+  grid-area: applicant; min-width: 0;
+  display: flex; align-items: center; gap: 6px;
+  color: var(--mat-sys-on-surface-variant);
+  mat-icon { flex: none; font-size: 16px; width: 16px; height: 16px; }
+  .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.amount {
+  grid-area: amount; margin-top: var(--gm-space-2);
+  font-family: var(--gm-font-mono); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.date {
+  grid-area: date; justify-self: end; margin-top: var(--gm-space-2);
+  font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); white-space: nowrap;
+}
+.status { grid-area: status; justify-self: end; }
+.chevron { display: none; grid-area: chevron; }
+
+@include bp.up(lg) {
+  .list {
+    overflow: hidden;
+    background: var(--mat-sys-surface-container-lowest);
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: var(--gm-radius-lg);
+  }
+  .list-head {
+    display: grid; grid-template-columns: $cols; gap: 0 var(--gm-space-4);
+    padding: var(--gm-space-3) var(--gm-card-pad);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--mat-sys-on-surface-variant);
+    .num { text-align: right; }
+  }
+  .rows {
+    display: block;
+    li + li { border-top: 1px solid var(--mat-sys-outline-variant); }
+  }
+  .row {
+    grid-template-columns: $cols;
+    grid-template-areas:
+      'title applicant amount date status chevron'
+      'ref   applicant amount date status chevron';
+    gap: 2px var(--gm-space-4);
+    padding: var(--gm-space-3) var(--gm-card-pad);
+    background: transparent; border: 0; border-radius: 0;
+    &:hover { background: var(--mat-sys-surface-container); }
+    &:focus-visible { outline-offset: -2px; }
+    &:hover .chevron, &:focus-visible .chevron { color: var(--mat-sys-primary); transform: translateX(2px); }
+  }
+  .title { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .amount, .date { margin-top: 0; }
+  .amount { justify-self: end; text-align: right; }
+  .date { justify-self: start; .cell-label { @include sr-only; } }
+  .status { justify-self: start; }
+  .chevron { display: block; color: var(--mat-sys-on-surface-variant); transition: transform .15s, color .15s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row, .chevron { transition: none; }
+}

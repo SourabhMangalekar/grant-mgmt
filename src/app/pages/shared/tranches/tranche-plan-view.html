@@ -1,0 +1,69 @@
+@let p = plan();
+@let t = tranche();
+@let cur = currency();
+@let gap = gapMinor();
+
+<div class="plan-view">
+  <div class="meta">
+    <gm-tranche-state [state]="p.state" />
+    <span>Attempt {{ p.attempt || 1 }}</span>
+    @if (p.submittedAt) { <span>Submitted {{ p.submittedAt | date: 'd MMM y' }}</span> }
+  </div>
+
+  @if (p.reviewComment) {
+    @let note = review();
+    <div class="callout" [class.changes]="note.tone === 'changes'" [class.approved]="note.tone === 'approved'">
+      <mat-icon aria-hidden="true">{{ note.icon }}</mat-icon>
+      <div class="callout-body">
+        <span class="callout-title">{{ note.title }}</span>
+        <p class="callout-text">{{ p.reviewComment }}</p>
+        @if (p.reviewedAt) { <span class="callout-meta">{{ p.reviewedAt | date: 'd MMM y' }}</span> }
+      </div>
+    </div>
+  }
+
+  @if (items().length) {
+    <div class="items" role="table" [attr.aria-label]="'Planned activities for tranche ' + t.sequenceNo">
+      <div class="head" role="row">
+        <span class="c-no" role="columnheader">No.</span>
+        <span class="c-activity" role="columnheader">Activity</span>
+        <span class="c-output" role="columnheader">Expected output</span>
+        <span class="c-date" role="columnheader">By</span>
+        <span class="c-budget" role="columnheader">Budget</span>
+      </div>
+      @for (item of items(); track item.id ?? $index) {
+        <div class="item" role="row">
+          <span class="c-no" role="cell"><span class="no">{{ $index + 1 }}</span></span>
+          <span class="c-activity" role="cell">{{ item.activity }}</span>
+          <span class="c-output" role="cell">
+            <span class="cell-label" aria-hidden="true">Expected output</span>
+            @if (item.expectedOutput) { {{ item.expectedOutput }} } @else { <span class="muted">—</span> }
+          </span>
+          <span class="c-date" role="cell">
+            <span class="cell-label" aria-hidden="true">By</span>
+            @if (item.date) { {{ item.date | date: 'd MMM y' }} } @else { <span class="muted">—</span> }
+          </span>
+          <span class="c-budget" role="cell">
+            <span class="cell-label" aria-hidden="true">Budget</span>
+            {{ item.budgetMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}
+          </span>
+        </div>
+      }
+    </div>
+
+    <div class="totals" [class.ok]="gap === 0" [class.over]="gap < 0">
+      <div class="figure"><span class="label-mono">Planned</span><strong>{{ totalMinor() / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong></div>
+      <div class="figure"><span class="label-mono">This tranche</span><strong>{{ t.amountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong></div>
+      <div class="gap">
+        @if (gap === 0) { <mat-icon aria-hidden="true">check_circle</mat-icon> } @else { <mat-icon aria-hidden="true">warning</mat-icon> }
+        <span>
+          @if (gap === 0) { Matches this tranche }
+          @else if (gap > 0) { {{ gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} short of this tranche }
+          @else { {{ -gap / 100 | currency: cur : 'symbol' : '1.0-2' : 'en-IN' }} over this tranche }
+        </span>
+      </div>
+    </div>
+  } @else {
+    <p class="muted empty">No activities have been added to this plan yet.</p>
+  }
+</div>

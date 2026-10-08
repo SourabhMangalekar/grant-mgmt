@@ -3,82 +3,139 @@
     <div>
       <span class="eyebrow">Funder</span>
       <h1>Applications</h1>
-      <p>{{ rows().length }} application{{ rows().length === 1 ? '' : 's' }}</p>
+      @if (loading() || error()) {
+        <p>Proposals grantees have sent to your calls.</p>
+      } @else {
+        <p>
+          {{ all().length }} application{{ all().length === 1 ? '' : 's' }} received across
+          {{ calls().length }} call{{ calls().length === 1 ? '' : 's' }}
+        </p>
+      }
     </div>
   </header>
 
-  <div class="filters">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search">
-      <mat-icon matPrefix>search</mat-icon>
-      <mat-label>Search</mat-label>
-      <input matInput [value]="query()" (input)="query.set($any($event.target).value)"
-             placeholder="Title, applicant, program…">
-    </mat-form-field>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="status">
-      <mat-label>Status</mat-label>
-      <mat-select [value]="status()" (valueChange)="status.set($event)">
-        <mat-option value="">All</mat-option>
-        @for (s of statuses; track s) { <mat-option [value]="s">{{ s }}</mat-option> }
-      </mat-select>
-    </mat-form-field>
-  </div>
+  @if (loading()) {
+    <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading applications" /></div>
+  } @else if (error()) {
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>cloud_off</mat-icon></span>
+      <h2>Couldn’t load applications</h2>
+      <p>The grant service didn’t respond. Check your connection and try again.</p>
+      <div class="empty-actions"><button mat-stroked-button type="button" (click)="load()"><mat-icon>refresh</mat-icon> Try again</button></div>
+    </div>
+  } @else if (!all().length) {
+    <div class="surface-card empty-state">
+      <span class="empty-icon"><mat-icon>inbox</mat-icon></span>
+      <h2>No applications yet</h2>
+      <p>When grantees submit proposals to your calls, they appear here.</p>
+      <div class="empty-actions">
+        <a mat-flat-button routerLink="/grant-calls"><mat-icon>campaign</mat-icon> Your calls for proposals</a>
+      </div>
+    </div>
+  } @else {
+    <div class="filters">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search">
+        <mat-icon matPrefix>search</mat-icon>
+        <mat-label>Search</mat-label>
+        <input matInput #searchInput type="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
+               placeholder="Title, reference, applicant, call…"
+               [value]="query()" (input)="query.set(searchInput.value)">
+        @if (query()) {
+          <button mat-icon-button matSuffix type="button" aria-label="Clear search"
+                  (click)="query.set(''); searchInput.focus()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="status">
+        <mat-label>Status</mat-label>
+        <mat-select [value]="status()" (valueChange)="status.set($event)">
+          <mat-option value="">All statuses</mat-option>
+          @for (s of statuses; track s) { <mat-option [value]="s">{{ s }}</mat-option> }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="call">
+        <mat-label>Call</mat-label>
+        <mat-select [value]="callId()" (valueChange)="callId.set($event)">
+          <mat-option value="">All calls</mat-option>
+          @for (c of calls(); track c.id) { <mat-option [value]="c.id">{{ c.title }} ({{ c.count }})</mat-option> }
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <p class="result-count muted" role="status">{{ resultCount() }}</p>
 
-  <!-- Desktop / tablet: table -->
-  <div class="surface-card table-scroll desktop-only">
-    <table mat-table [dataSource]="rows()">
-      <ng-container matColumnDef="id">
-        <th mat-header-cell *matHeaderCellDef>ID</th>
-        <td mat-cell *matCellDef="let g" class="muted">{{ g.id }}</td>
-      </ng-container>
-      <ng-container matColumnDef="title">
-        <th mat-header-cell *matHeaderCellDef>Grant</th>
-        <td mat-cell *matCellDef="let g">
-          <div class="title">{{ g.title }}</div>
-          <div class="muted small">{{ g.applicant }}</div>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="program">
-        <th mat-header-cell *matHeaderCellDef>Program</th>
-        <td mat-cell *matCellDef="let g">{{ g.program }}</td>
-      </ng-container>
-      <ng-container matColumnDef="amount">
-        <th mat-header-cell *matHeaderCellDef class="num">Amount</th>
-        <td mat-cell *matCellDef="let g" class="num">{{ g.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="submittedOn">
-        <th mat-header-cell *matHeaderCellDef>Submitted</th>
-        <td mat-cell *matCellDef="let g">{{ g.submittedOn | date: 'mediumDate' }}</td>
-      </ng-container>
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let g"><gm-status-chip [status]="g.status" /></td>
-      </ng-container>
+    <!-- Desktop: table -->
+    <div class="surface-card table-scroll desktop-only">
+      <table mat-table [dataSource]="rows()" [trackBy]="trackRow" aria-label="Applications received">
+        <ng-container matColumnDef="reference">
+          <th mat-header-cell *matHeaderCellDef>Reference</th>
+          <td mat-cell *matCellDef="let r">{{ r.reference }}</td>
+        </ng-container>
+        <ng-container matColumnDef="proposal">
+          <th mat-header-cell *matHeaderCellDef>Proposal</th>
+          <td mat-cell *matCellDef="let r">
+            <a class="title-link" [routerLink]="r.link">{{ r.title }}</a>
+            <div class="muted small">{{ r.applicant }}</div>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="call">
+          <th mat-header-cell *matHeaderCellDef>Call</th>
+          <td mat-cell *matCellDef="let r">
+            <a class="call-link" [routerLink]="r.callLink" [attr.aria-label]="'All applications to ' + r.callTitle">{{ r.callTitle }}</a>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="requested">
+          <th mat-header-cell *matHeaderCellDef class="num">Requested</th>
+          <td mat-cell *matCellDef="let r" class="num">
+            {{ r.requestedMinor != null ? (r.requestedMinor / 100 | currency: r.currency : 'symbol' : '1.0-0' : 'en-IN') : '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="submitted">
+          <th mat-header-cell *matHeaderCellDef>Submitted</th>
+          <td mat-cell *matCellDef="let r">{{ r.submittedAt ? (r.submittedAt | date: 'd MMM y') : '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let r"><gm-status-chip [status]="r.status" /></td>
+        </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="columns"></tr>
-      <tr mat-row *matRowDef="let row; columns: columns"></tr>
-      <tr class="mat-row" *matNoDataRow>
-        <td class="empty" [attr.colspan]="columns.length">No grants match your filters.</td>
-      </tr>
-    </table>
-  </div>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns" class="clickable" (click)="openRow($event, row)"></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="empty" [attr.colspan]="columns.length">
+            No applications match your filters.
+            <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
+          </td>
+        </tr>
+      </table>
+    </div>
 
-  <!-- Mobile: cards -->
-  <div class="cards mobile-only">
-    @for (g of rows(); track g.id) {
-      <article class="surface-card grant-card">
-        <div class="row">
-          <span class="muted small">{{ g.id }} · {{ g.program }}</span>
-          <gm-status-chip [status]="g.status" />
-        </div>
-        <div class="title">{{ g.title }}</div>
-        <div class="muted small">{{ g.applicant }}</div>
-        <div class="row">
-          <strong>{{ g.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</strong>
-          <span class="muted small">{{ g.submittedOn | date: 'mediumDate' }}</span>
-        </div>
-      </article>
-    } @empty {
-      <div class="surface-card empty">No grants match your filters.</div>
-    }
-  </div>
+    <!-- Mobile and tablet: cards -->
+    <ul class="cards mobile-only">
+      @for (r of rows(); track r.id) {
+        <li>
+          <a class="surface-card app-card" [routerLink]="r.link">
+            <span class="top">
+              <span class="label-mono ref">{{ r.reference }}</span>
+              <gm-status-chip [status]="r.status" />
+            </span>
+            <span class="title">{{ r.title }}</span>
+            <span class="muted small">{{ r.applicant }}</span>
+            <span class="muted small call"><mat-icon aria-hidden="true">campaign</mat-icon>{{ r.callTitle }}</span>
+            <span class="bottom">
+              <strong class="amount">
+                {{ r.requestedMinor != null ? (r.requestedMinor / 100 | currency: r.currency : 'symbol' : '1.0-0' : 'en-IN') : '—' }}
+              </strong>
+              <span class="muted small">{{ r.submittedAt ? 'Submitted ' + (r.submittedAt | date: 'd MMM y') : '—' }}</span>
+            </span>
+          </a>
+        </li>
+      } @empty {
+        <li class="surface-card empty">
+          No applications match your filters.
+          <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
+        </li>
+      }
+    </ul>
+  }
 </div>

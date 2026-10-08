@@ -1,45 +1,98 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { Grant } from './grant.model';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
+import { Application, ApplicationApi } from './application.api';
+import { GrantCall, GrantCallApi, isPublished } from './grant-call.api';
+import { Grant, GrantStatus } from './grant.model';
 
-/** A funder's open call for proposals, as seen by a grantee. */
-export interface GrantCall {
-  id: string;
+/** A funder's open call for proposals, as a grantee sees it in lists. */
+export interface OpenCall {
+  id: number;
   title: string;
-  funder: string;
+  /** The funder's own call code, if any. (The grant service doesn't expose the funder's name.) */
+  code: string;
   program: string;
   maxAmount: number;
   deadline: string;
+  raw: GrantCall;
 }
 
-// Placeholder data until the grant APIs exist; mirrors GrantService's seed for the granter side.
-const MY_APPLICATIONS: Grant[] = [
-  { id: 'GR-1025', title: 'Girls in STEM Scholarships', applicant: 'Kaveri Foundation', program: 'Education', amount: 800000, status: 'In Review', submittedOn: '2026-09-02' },
-  { id: 'GR-1029', title: 'Farmer Producer Training', applicant: 'Kaveri Foundation', program: 'Livelihoods', amount: 950000, status: 'Approved', submittedOn: '2026-06-18' },
-  { id: 'GR-1031', title: 'Community Libraries', applicant: 'Kaveri Foundation', program: 'Education', amount: 520000, status: 'Draft', submittedOn: '2026-10-01' },
-  { id: 'GR-1028', title: 'Digital Literacy for Seniors', applicant: 'Kaveri Foundation', program: 'Education', amount: 300000, status: 'Rejected', submittedOn: '2026-07-30' },
-];
+/** Grant-service application states → the app's status chips. Unknown states read as in review. */
+export function statusOf(state: string | undefined): GrantStatus {
+  const s = (state ?? 'DRAFT').toUpperCase();
+  if (s.includes('DRAFT')) return 'Draft';
+  // Negatives first, so NOT_SELECTED or SHORTLIST_REJECTED never read as good news.
+  if (s.includes('REJECT') || s.includes('DECLIN') || /NOT_?SELECT|UNSELECT|DESELECT/.test(s)) return 'Rejected';
+  // The grant service's review chain: SCREENING (just submitted) → UNDER_REVIEW → COMMITTEE → APPROVED | REJECTED.
+  if (s.includes('SCREEN') || s === 'SUBMITTED') return 'Screening';
+  if (s.includes('COMMITTEE')) return 'In Committee';
+  if (s.includes('APPROV') || s.includes('AWARD')) return 'Approved';
+  if (s.includes('CLOS') || s.includes('WITHDRAW')) return 'Closed';
+  return 'In Review';
+}
 
-const OPEN_CALLS: GrantCall[] = [
-  { id: 'CFP-201', title: 'Climate Resilient Agriculture 2027', funder: 'Tata Trusts', program: 'Livelihoods', maxAmount: 2500000, deadline: '2026-11-15' },
-  { id: 'CFP-202', title: 'Foundational Literacy & Numeracy', funder: 'Azim Premji Foundation', program: 'Education', maxAmount: 1500000, deadline: '2026-10-31' },
-  { id: 'CFP-203', title: 'Primary Health in Aspirational Districts', funder: 'Piramal Foundation', program: 'Health', maxAmount: 3000000, deadline: '2026-12-10' },
-  { id: 'CFP-204', title: 'Urban Water Stewardship', funder: 'HDFC Parivartan', program: 'Environment', maxAmount: 1200000, deadline: '2026-10-20' },
-];
+/** Submitted and not yet decided: the stages before approval or rejection. */
+export const PENDING: GrantStatus[] = ['Screening', 'In Review', 'In Committee'];
 
-/** The grantee side of the app: the organisation's own applications and the calls it can apply to. */
+const iso = (ms?: number) => (ms ? new Date(ms).toISOString() : '');
+
+/** The grantee side of the app: open calls to apply to, and the organisation's own applications. */
 @Injectable({ providedIn: 'root' })
 export class GranteeService {
-  readonly applications = signal<Grant[]>(MY_APPLICATIONS);
-  readonly calls = signal<GrantCall[]>(OPEN_CALLS);
+  private readonly calls$ = inject(GrantCallApi);
+  private readonly apps$ = inject(ApplicationApi);
+
+  private readonly rawCalls = signal<GrantCall[]>([]);
+  private readonly rawApps = signal<Application[]>([]);
+  readonly loading = signal(false);
+  readonly error = signal(false);
+
+  /** Published calls still accepting applications, soonest deadline first. */
+  readonly calls = computed<OpenCall[]>(() => this.rawCalls()
+    .filter(c => isPublished(c.state) && (!c.closesAt || c.closesAt > Date.now()))
+    .sort((a, b) => (a.closesAt ?? 0) - (b.closesAt ?? 0))
+    .map(c => ({
+      id: c.id!,
+      title: c.title || 'Untitled call',
+      code: c.callCode || '',
+      program: c.theme || 'General',
+      maxAmount: (c.maxAwardMinor ?? c.envelopeAmountMinor) / 100,
+      deadline: iso(c.closesAt),
+      raw: c,
+    })));
+
+  readonly applications = computed<Grant[]>(() => {
+    const calls = new Map(this.rawCalls().map(c => [c.id, c]));
+    return this.rawApps().map(a => ({
+      id: a.referenceCode || `APP-${a.id}`,
+      title: a.title || calls.get(a.grantCallId)?.title || 'Untitled proposal',
+      applicant: calls.get(a.grantCallId)?.title || `Call #${a.grantCallId}`,
+      program: calls.get(a.grantCallId)?.theme || 'General',
+      amount: (a.requestedAmountMinor ?? 0) / 100,
+      status: statusOf(a.state),
+      submittedOn: iso(a.submittedAt) || iso(a.consentGivenAt),
+      appId: a.id,
+    }));
+  });
 
   readonly stats = computed(() => {
     const a = this.applications();
     const funded = a.filter(x => x.status === 'Approved' || x.status === 'Closed');
     return {
       drafts: a.filter(x => x.status === 'Draft').length,
-      inReview: a.filter(x => x.status === 'In Review').length,
+      // Everything submitted and not yet decided.
+      inReview: a.filter(x => PENDING.includes(x.status)).length,
       funded: funded.length,
       received: funded.reduce((sum, x) => sum + x.amount, 0),
     };
   });
+
+  /** (Re)loads calls and applications from the grant service. */
+  load() {
+    this.loading.set(true);
+    this.error.set(false);
+    forkJoin([this.calls$.listOpen(0, 100), this.apps$.list()]).subscribe({
+      next: ([calls, apps]) => { this.rawCalls.set(calls); this.rawApps.set(apps); this.loading.set(false); },
+      error: () => { this.error.set(true); this.loading.set(false); },
+    });
+  }
 }

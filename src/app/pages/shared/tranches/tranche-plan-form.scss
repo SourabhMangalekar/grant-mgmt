@@ -1,0 +1,62 @@
+@use 'tranche-common' as tc;
+
+// Layout follows the component's own width (container queries), not the viewport: the pages place it in cards of
+// different widths. Narrow: each activity stacks its fields; wide: one line per activity.
+:host { display: block; width: 100%; min-width: 0; container-type: inline-size; }
+
+.plan-form { display: flex; flex-direction: column; gap: var(--gm-space-4); }
+.intro { margin: 0; line-height: 1.6; }
+
+.rows { display: flex; flex-direction: column; gap: var(--gm-space-3); }
+.row {
+  display: grid; align-items: start; gap: var(--gm-space-2) var(--gm-space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'head del' 'act act' 'out out' 'bud bud' 'date date';
+  padding: var(--gm-space-3); border-radius: var(--gm-radius-md);
+  background: var(--mat-sys-surface-container-low); border: 1px solid var(--mat-sys-outline-variant);
+
+  mat-form-field { width: 100%; min-width: 0; }
+  .f-activity { grid-area: act; }
+  .f-output { grid-area: out; }
+  .f-budget { grid-area: bud; }
+  .f-date { grid-area: date; }
+  .remove { grid-area: del; justify-self: end; }
+}
+.row-head {
+  grid-area: head; align-self: center; display: flex; align-items: center; gap: var(--gm-space-2); min-width: 0;
+  // Narrow rows are headed "ACTIVITY 1"; wide ones by the circled number alone.
+  .no { @include tc.row-no; display: none; }
+}
+
+// Budget and date side by side once there's room.
+@container (min-width: 480px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas: 'head head del' 'act act act' 'out out out' 'bud date date';
+  }
+}
+
+// One line per activity: number, activity, output, budget, date, remove.
+@container (min-width: 820px) {
+  .rows { gap: var(--gm-space-2); }
+  .row {
+    grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) 150px 184px 48px;
+    grid-template-areas: 'head act out bud date del';
+    padding: 0; border: 0; background: none; border-radius: 0;
+  }
+  // Line the number and the remove button up with the 56px fields.
+  .row-head { align-self: start; margin-top: 14px; .no { display: inline-grid; } }
+  .row-title { @include tc.sr-only; }
+  .remove { margin-top: 4px; }
+}
+
+.add-line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-2) var(--gm-space-3);
+  .muted { font: var(--mat-sys-body-small); }
+}
+
+.totals { @include tc.totals; }
+.problem { @include tc.form-alert; }
+
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--gm-space-2); }
+.btn-spinner { display: inline-block; vertical-align: middle; margin-right: var(--gm-space-2); }

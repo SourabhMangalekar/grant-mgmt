@@ -1,0 +1,53 @@
+@use 'tranche-common' as tc;
+
+:host { display: block; }
+
+.report-view { display: flex; flex-direction: column; gap: var(--gm-space-4); }
+.meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-2) var(--gm-space-3);
+  color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small);
+}
+.callout { @include tc.callout; }
+.block { display: flex; flex-direction: column; gap: var(--gm-space-2); min-width: 0; }
+.summary { margin: 0; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+
+.totals {
+  @include tc.totals;
+  .bar { @include tc.bar; flex: 1 0 100%; }
+}
+
+// ── How each activity went ──
+.lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.line {
+  display: flex; flex-direction: column; gap: var(--gm-space-1);
+  padding: var(--gm-space-3) 0; border-top: 1px solid var(--mat-sys-outline-variant);
+  &:last-child { border-bottom: 1px solid var(--mat-sys-outline-variant); }
+}
+.line-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--gm-space-1) var(--gm-space-3);
+  .activity { flex: 1 1 12rem; min-width: 0; font: var(--mat-sys-title-small); overflow-wrap: anywhere; }
+}
+.delivery {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  padding: 2px 10px 2px 6px; border-radius: 999px; font: var(--mat-sys-label-medium); white-space: nowrap;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  &.done   { color: var(--gm-status-approved); background: var(--gm-status-approved-bg); }
+  &.partly { color: var(--gm-status-review);   background: var(--gm-status-review-bg); }
+  &.not    { color: var(--gm-status-rejected); background: var(--gm-status-rejected-bg); }
+  &.none   { color: var(--gm-status-draft);    background: var(--gm-status-draft-bg); }
+}
+.spent { font-variant-numeric: tabular-nums; strong { font-weight: 600; } }
+.remark {
+  margin: var(--gm-space-1) 0 0; padding-left: var(--gm-space-3);
+  border-left: 2px solid var(--mat-sys-outline-variant);
+  color: var(--mat-sys-on-surface-variant); line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere;
+}
+
+// ── Files ──
+.files {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--gm-space-2);
+  li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-1) var(--gm-space-2); min-width: 0; }
+  mat-icon { font-size: 20px; width: 20px; height: 20px; color: var(--mat-sys-primary); }
+  .what { color: var(--mat-sys-on-surface-variant); }
+  .name { font-family: var(--gm-font-mono); font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+}

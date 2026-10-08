@@ -1,0 +1,66 @@
+@let cur = currency();
+
+<form class="setup" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <div class="count">
+    <span class="field-label" id="tranche-count-label">Number of tranches</span>
+    <mat-button-toggle-group [value]="count()" (change)="setCount($event.value)" aria-labelledby="tranche-count-label"
+                             hideSingleSelectionIndicator>
+      @for (n of counts; track n) { <mat-button-toggle [value]="n">{{ n }}</mat-button-toggle> }
+    </mat-button-toggle-group>
+  </div>
+
+  <ol class="rows" formArrayName="rows">
+    @for (row of rows.controls; track row; let i = $index) {
+      @let c = row.controls;
+      <li class="row" [formGroupName]="i">
+        <div class="row-head">
+          <span class="row-title" [id]="'setup-row-' + i">Tranche {{ i + 1 }}</span>
+          <span class="row-amount">{{ amountAt(i) / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</span>
+        </div>
+        <div class="fields" role="group" [attr.aria-labelledby]="'setup-row-' + i">
+          <mat-form-field class="f-share" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Share</mat-label>
+            <input matInput type="number" inputmode="numeric" min="1" max="100" step="1" formControlName="percentage" autocomplete="off">
+            <span matTextSuffix>%</span>
+            @if (c.percentage.hasError('required')) { <mat-error>Required</mat-error> }
+            @else if (c.percentage.hasError('min') || c.percentage.hasError('max')) { <mat-error>1 to 100</mat-error> }
+            @else if (c.percentage.hasError('whole')) { <mat-error>Whole %</mat-error> }
+          </mat-form-field>
+
+          <mat-form-field class="f-label" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Milestone</mat-label>
+            <input matInput formControlName="milestoneLabel" maxlength="120" autocomplete="off" placeholder="e.g. Inception &amp; baseline">
+            @if (c.milestoneLabel.hasError('required')) { <mat-error>Name the milestone</mat-error> }
+          </mat-form-field>
+
+
+          <mat-form-field class="f-date" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Report due</mat-label>
+            <input matInput [matDatepicker]="due" formControlName="reportDueAt" autocomplete="off">
+            <mat-datepicker-toggle matIconSuffix [for]="due" />
+            <mat-datepicker #due />
+            <mat-hint>DD/MM/YYYY</mat-hint>
+            @if (c.reportDueAt.hasError('matDatepickerParse')) { <mat-error>Enter a date as DD/MM/YYYY</mat-error> }
+          </mat-form-field>
+        </div>
+      </li>
+    }
+  </ol>
+
+  <div class="foot">
+    <p class="sum" [class.ok]="sum() === 100">
+      <mat-icon aria-hidden="true">{{ sum() === 100 ? 'check_circle' : 'pie_chart' }}</mat-icon>
+      <span>Shares add up to <strong>{{ sum() }}%</strong>@if (sum() !== 100) {<span class="muted"> of 100%</span>}</span>
+    </p>
+    <button mat-flat-button type="submit" [disabled]="busy()" disabledInteractive>
+      @if (busy()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+      @else { <mat-icon>account_tree</mat-icon> }
+      {{ busy() ? 'Setting up…' : 'Set up ' + count() + ' tranches' }}
+    </button>
+  </div>
+  @if (sumRefused() && sum() !== 100) {
+    <p class="field-error" role="alert">
+      The shares add up to {{ sum() }}%: change them so they add up to exactly 100%.
+    </p>
+  }
+</form>

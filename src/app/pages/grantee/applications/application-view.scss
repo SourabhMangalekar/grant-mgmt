@@ -1,0 +1,182 @@
+@use 'breakpoints' as bp;
+
+@mixin mono-label {
+  font-family: var(--gm-font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--mat-sys-on-surface-variant);
+}
+@mixin small-icon($size: 18px) { flex: none; font-size: $size; width: $size; height: $size; }
+
+.state-title { margin: var(--gm-space-2) 0 0; font: var(--mat-sys-title-medium); }
+
+// ── Header ──────────────────────────────────────────────────────────────
+.page-header {
+  .heading { flex: 1 1 28rem; min-width: 0; }
+  h1 { font-size: clamp(26px, 3.2vw, 36px); max-width: 40ch; text-wrap: balance; overflow-wrap: anywhere; }
+}
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-2) var(--gm-space-4); }
+.call {
+  display: inline-flex; align-items: center; gap: var(--gm-space-1); min-width: 0;
+  font-weight: 600; color: var(--mat-sys-on-surface); overflow-wrap: anywhere;
+  mat-icon { @include small-icon; color: var(--mat-sys-on-surface-variant); }
+  a { color: var(--mat-sys-primary); text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+// ── Key facts ───────────────────────────────────────────────────────────
+.facts { padding: var(--gm-card-pad); margin-bottom: var(--gm-section-gap); }
+.figures {
+  display: grid; margin: 0; row-gap: var(--gm-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  > div {
+    min-width: 0; padding-right: var(--gm-space-4);
+    @include bp.up(md) {
+      & + div { padding-left: var(--gm-space-5); border-left: 1px solid var(--mat-sys-outline-variant); }
+    }
+  }
+  dt { @include mono-label; }
+  dd {
+    margin: var(--gm-space-1) 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
+}
+.explainer {
+  display: flex; align-items: flex-start; gap: var(--gm-space-2);
+  margin: var(--gm-space-4) 0 0; padding-top: var(--gm-space-3);
+  border-top: 1px solid var(--mat-sys-outline-variant); line-height: 1.6;
+  mat-icon { @include small-icon(20px); margin-top: 2px; color: var(--mat-sys-primary); }
+  &[data-status='Approved'] mat-icon { color: var(--gm-status-approved); }
+  &[data-status='Rejected'] mat-icon { color: var(--gm-status-rejected); }
+}
+
+// ── Your grant ──────────────────────────────────────────────────────────
+.grant { display: flex; flex-direction: column; gap: var(--gm-section-gap); margin-bottom: var(--gm-section-gap); }
+.section-title {
+  display: flex; align-items: center; gap: var(--gm-space-2); margin: var(--gm-space-2) 0 0;
+  font: var(--mat-sys-title-large);
+  mat-icon { color: var(--mat-sys-primary); }
+}
+.not-set-up { margin: 0; line-height: 1.5; }
+
+.award { display: flex; flex-direction: column; gap: var(--gm-space-4); padding: var(--gm-card-pad); }
+.award-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--gm-space-2); }
+.meter {
+  height: 8px; border-radius: 999px; overflow: hidden; background: var(--mat-sys-surface-container-high);
+  > span { display: block; height: 100%; border-radius: inherit; background: var(--gm-status-approved); transition: width .3s; }
+}
+
+// One card per tranche, in order. Spacing inside uses margins, not gap, so the always-present (usually empty)
+// status region takes no room.
+.tranches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--gm-section-gap); }
+.tranche {
+  padding: var(--gm-card-pad);
+  &.your-turn { border-color: var(--mat-sys-primary); box-shadow: inset 4px 0 0 var(--mat-sys-primary); }
+  &.locked { background: var(--mat-sys-surface-container-low); border-style: dashed; }
+}
+.tranche-head {
+  display: grid; gap: var(--gm-space-2) var(--gm-space-3); align-items: start;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'seq title' '. side';
+  @include bp.up(sm) { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'seq title side'; }
+}
+.seq {
+  grid-area: seq; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  border: 2px solid var(--mat-sys-primary); color: var(--mat-sys-primary); font: var(--mat-sys-title-small);
+  mat-icon { @include small-icon; }
+  .your-turn & { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
+  .locked & { border-color: var(--mat-sys-outline-variant); color: var(--mat-sys-on-surface-variant); }
+  .done & { border-color: transparent; background: var(--gm-status-approved-bg); color: var(--gm-status-approved); }
+}
+.tranche-title {
+  grid-area: title; min-width: 0;
+  h3 { margin: 0; font: var(--mat-sys-title-medium); }
+  .of { font: var(--mat-sys-body-medium); color: var(--mat-sys-on-surface-variant); }
+  p { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .dates {
+    display: flex; flex-wrap: wrap; gap: 0 var(--gm-space-3); margin-top: var(--gm-space-1);
+    font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant);
+  }
+}
+.tranche-side {
+  grid-area: side; display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-1) var(--gm-space-3);
+  @include bp.up(sm) { flex-direction: column; align-items: flex-end; text-align: right; gap: var(--gm-space-1); }
+  .amount { font: var(--mat-sys-title-medium); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pct { font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); }
+}
+
+// ── Outcome messages ──
+.outcome {
+  align-items: center; margin: var(--gm-space-4) 0 0;
+  &:focus { outline: none; }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .text { flex: 1; min-width: 0; line-height: 1.5; }
+  .dismiss { flex: none; margin: calc(var(--gm-space-2) * -1) calc(var(--gm-space-2) * -1) calc(var(--gm-space-2) * -1) 0; color: inherit; }
+}
+
+// ── Tranche content ──
+.tranche-body {
+  display: flex; flex-direction: column; gap: var(--gm-space-3);
+  margin-top: var(--gm-space-4); padding-top: var(--gm-space-4); border-top: 1px solid var(--mat-sys-outline-variant);
+  > p { margin: 0; line-height: 1.6; }
+}
+.note {
+  display: flex; align-items: flex-start; gap: var(--gm-space-2); margin: 0; line-height: 1.6;
+  mat-icon { @include small-icon(20px); margin-top: 2px; color: var(--mat-sys-on-surface-variant); }
+  &.waiting mat-icon { color: var(--gm-status-review); }
+  &.good mat-icon { color: var(--gm-status-approved); }
+  .locked & { color: var(--mat-sys-on-surface-variant); }
+}
+.paid {
+  display: flex; flex-wrap: wrap; gap: var(--gm-space-2) var(--gm-space-6); margin: 0;
+  padding: var(--gm-space-3) var(--gm-space-4); border-radius: var(--gm-radius-md); background: var(--mat-sys-surface-container);
+  > div { min-width: 0; }
+  dt { @include mono-label; }
+  dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+  .mono { font-family: var(--gm-font-mono); font-weight: 500; }
+}
+.changes {
+  padding: var(--gm-space-3) var(--gm-space-4); border-radius: var(--gm-radius-md);
+  border: 1px solid var(--gm-status-review); background: var(--gm-status-review-bg);
+  .label-mono { display: flex; align-items: center; gap: var(--gm-space-1); color: var(--gm-status-review); }
+  mat-icon { @include small-icon(16px); }
+  .comment {
+    margin: var(--gm-space-2) 0 0; font: var(--mat-sys-body-large); color: var(--mat-sys-on-surface);
+    white-space: pre-line; overflow-wrap: anywhere;
+  }
+}
+.form-host {
+  border-radius: var(--gm-radius-md);
+  &:focus { outline: none; }
+  &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 4px; }
+}
+.actions {
+  display: flex; flex-wrap: wrap; gap: var(--gm-space-2);
+  @include bp.down(sm) { > button { flex: 1 1 auto; } }
+}
+.more {
+  border-top: 1px dashed var(--mat-sys-outline-variant);
+  summary {
+    // At least 44px tall, so it's an easy target on a phone.
+    padding: var(--gm-space-3) 0; cursor: pointer;
+    font: var(--mat-sys-label-large); color: var(--mat-sys-primary);
+    &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; border-radius: var(--gm-radius-sm); }
+  }
+  &[open] summary { margin-bottom: var(--gm-space-2); }
+}
+
+// ── The proposal ────────────────────────────────────────────────────────
+.block {
+  padding: var(--gm-card-pad);
+  > header {
+    display: flex; align-items: center; gap: var(--gm-space-2); margin-bottom: var(--gm-space-4);
+    > mat-icon { @include small-icon(20px); color: var(--mat-sys-primary); }
+    h2 { flex: 1; margin: 0; font: var(--mat-sys-title-medium); }
+  }
+  > .muted { margin: 0; }
+}
+.prose { margin: 0; white-space: pre-line; line-height: 1.7; color: var(--mat-sys-on-surface); overflow-wrap: anywhere; }
+
+// "Your grant" heading with the Check for updates button on its right.
+.grant-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--gm-space-2);
+  .section-title { margin-bottom: 0; }
+}
+.btn-spinner { display: inline-block; vertical-align: middle; margin-right: var(--gm-space-2); }

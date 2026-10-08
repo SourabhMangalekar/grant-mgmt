@@ -15,39 +15,47 @@
     <div class="kpi surface-card">
       <span class="kpi-icon"><mat-icon>description</mat-icon></span>
       <span class="kpi-label">Total applications</span>
-      <span class="kpi-value">{{ stats().total }}</span>
+      <span class="kpi-value">{{ loading() || error() ? '—' : stats().total }}</span>
     </div>
     <div class="kpi surface-card">
       <span class="kpi-icon"><mat-icon>hourglass_top</mat-icon></span>
       <span class="kpi-label">In review</span>
-      <span class="kpi-value">{{ stats().inReview }}</span>
+      <span class="kpi-value">{{ loading() || error() ? '—' : stats().inReview }}</span>
     </div>
     <div class="kpi surface-card">
       <span class="kpi-icon"><mat-icon>verified</mat-icon></span>
       <span class="kpi-label">Funded</span>
-      <span class="kpi-value">{{ stats().approved }}</span>
+      <span class="kpi-value">{{ loading() || error() ? '—' : stats().approved }}</span>
     </div>
     <div class="kpi surface-card">
       <span class="kpi-icon"><mat-icon>payments</mat-icon></span>
       <span class="kpi-label">Committed</span>
-      <span class="kpi-value">{{ stats().committed | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</span>
+      <span class="kpi-value">{{ loading() || error() ? '—' : (stats().committed | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN') }}</span>
     </div>
   </section>
 
   <section class="surface-card recent">
     <h2>Recent applications</h2>
-    <ul>
-      @for (g of recent(); track g.id) {
-        <li>
-          <div class="info">
-            <span class="title">{{ g.title }}</span>
-            <span class="muted">{{ g.applicant }} · {{ g.submittedOn | date: 'mediumDate' }}</span>
-          </div>
-          <gm-status-chip [status]="g.status" />
-        </li>
-      } @empty {
-        <li class="muted">No applications yet.</li>
-      }
-    </ul>
+    @if (loading()) {
+      <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading recent applications" /></div>
+    } @else if (error()) {
+      <p class="muted">Couldn’t load applications. The grant service didn’t respond — reload the page to try again.</p>
+    } @else {
+      <ul>
+        @for (r of recent(); track r.id) {
+          <li>
+            <a class="app" [routerLink]="r.link">
+              <span class="info">
+                <span class="title">{{ r.title }}</span>
+                <span class="muted">{{ r.applicant }}{{ r.sentAt ? ' · ' + (r.sentAt | date: 'd MMM y') : '' }}</span>
+              </span>
+              <gm-status-chip [status]="r.status" />
+            </a>
+          </li>
+        } @empty {
+          <li class="muted">No applications yet. When grantees submit proposals to your calls, they appear here.</li>
+        }
+      </ul>
+    }
   </section>
 </div>

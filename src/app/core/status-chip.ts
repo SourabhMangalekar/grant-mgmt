@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { GrantStatus } from './grant.model';
 
 const CLASS: Record<GrantStatus, string> = {
-  'Draft': 'draft', 'In Review': 'review', 'Approved': 'approved', 'Rejected': 'rejected', 'Closed': 'closed',
+  'Draft': 'draft', 'Screening': 'screening', 'In Review': 'review', 'In Committee': 'committee',
+  'Approved': 'approved', 'Rejected': 'rejected', 'Closed': 'closed',
 };
 
 @Component({
@@ -17,6 +18,8 @@ const CLASS: Record<GrantStatus, string> = {
     }
     .draft    { color: var(--gm-status-draft);    background: var(--gm-status-draft-bg); }
     .review   { color: var(--gm-status-review);   background: var(--gm-status-review-bg); }
+    .screening { color: var(--gm-status-screening); background: var(--gm-status-screening-bg); }
+    .committee { color: var(--gm-status-committee); background: var(--gm-status-committee-bg); }
     .approved { color: var(--gm-status-approved); background: var(--gm-status-approved-bg); }
     .rejected { color: var(--gm-status-rejected); background: var(--gm-status-rejected-bg); }
     .closed   { color: var(--gm-status-closed);   background: var(--gm-status-closed-bg); }

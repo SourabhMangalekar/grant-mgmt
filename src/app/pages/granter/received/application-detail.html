@@ -1,0 +1,280 @@
+<div class="page">
+  <a class="back-link" [routerLink]="['/grant-calls', id(), 'applications']"><mat-icon>arrow_back</mat-icon> All applications for this call</a>
+
+  @if (state() === 'loading') {
+    <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading application" /></div>
+  } @else if (state() === 'error') {
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>{{ notFound() ? 'search_off' : 'error_outline' }}</mat-icon></span>
+      @if (notFound()) {
+        <h1 class="state-title">Application not found</h1>
+        <p>It doesn’t exist, isn’t for this call, or hasn’t been submitted yet.</p>
+        <div class="empty-actions">
+          <a mat-flat-button [routerLink]="['/grant-calls', id(), 'applications']"><mat-icon>arrow_back</mat-icon> Back to applications</a>
+        </div>
+      } @else {
+        <h1 class="state-title">Couldn’t load this application</h1>
+        <p>The grant service didn’t respond. Check your connection and try again.</p>
+        <div class="empty-actions">
+          <a mat-stroked-button [routerLink]="['/grant-calls', id(), 'applications']"><mat-icon>arrow_back</mat-icon> Back to applications</a>
+          <button mat-flat-button type="button" (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button>
+        </div>
+      }
+    </div>
+  } @else if (app(); as a) {
+    @let cur = currency();
+
+    <header class="page-header">
+      <div class="heading">
+        <span class="eyebrow">Application · {{ a.referenceCode || '#' + a.id }}</span>
+        <h1>{{ a.title?.trim() || 'Untitled proposal' }}</h1>
+        <p class="meta">
+          <span class="applicant"><mat-icon>apartment</mat-icon>{{ applicant() }}</span>
+          <span>for <a [routerLink]="['/grant-calls', id()]">{{ a.call.title || 'this call for proposals' }}</a></span>
+          <gm-status-chip [status]="a.status" />
+        </p>
+      </div>
+    </header>
+
+    <!-- Key facts -->
+    <section class="surface-card facts" aria-label="Key facts">
+      <dl class="figures">
+        <div>
+          <dt>Amount requested</dt>
+          <dd>{{ a.requestedAmountMinor != null ? (a.requestedAmountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Project duration</dt>
+          <dd>{{ a.durationMonths != null ? a.durationMonths + (a.durationMonths === 1 ? ' month' : ' months') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Budget total</dt>
+          @let total = budgetTotal();
+          <dd>{{ total != null ? (total / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Submitted on</dt>
+          <dd>{{ (sentAt() | date: 'd MMM y') ?? '—' }}</dd>
+        </div>
+      </dl>
+      @if (awardRange(); as r) {
+        <p class="range">
+          <mat-icon>info</mat-icon>
+          <span>
+            This call awards
+            @if (r.min != null && r.max != null) {
+              between {{ r.min / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} and {{ r.max / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}
+            } @else if (r.max != null) {
+              up to {{ r.max / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}
+            } @else if (r.min != null) {
+              from {{ r.min / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}
+            }
+            per grant.
+          </span>
+        </p>
+      }
+    </section>
+
+    <!-- The funder's review and decision: screening → reviews → committee → approve or reject -->
+    <gm-application-workflow [application]="a" [reviews]="rawReviews()" (changed)="refresh()" />
+
+    <div class="layout">
+      <div class="main stack">
+        <!-- Summary -->
+        <section class="surface-card block">
+          <header><mat-icon>subject</mat-icon><h2>Project summary</h2></header>
+          @if (proposal().summary.trim()) {
+            <p class="prose">{{ proposal().summary.trim() }}</p>
+          } @else {
+            <p class="muted">The applicant didn’t write a summary.</p>
+          }
+        </section>
+
+        <!-- Answers -->
+        @if (answers().length) {
+          <section class="surface-card block">
+            <header><mat-icon>quiz</mat-icon><h2>Answers to your questions</h2></header>
+            <ol class="answers">
+              @for (q of answers(); track $index) {
+                <li>
+                  <span class="qn" aria-hidden="true">Q{{ $index + 1 }}</span>
+                  <div>
+                    <h3>{{ q.question }}</h3>
+                    @if (q.answer) {
+                      <p class="prose">{{ q.answer }}</p>
+                    } @else {
+                      <p class="muted">No answer given.</p>
+                    }
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        <!-- Budget -->
+        <section class="surface-card block">
+          <header>
+            <mat-icon>account_balance_wallet</mat-icon><h2>Budget</h2>
+            @if (lines().length) { <span class="pill">{{ lines().length }} line{{ lines().length === 1 ? '' : 's' }}</span> }
+          </header>
+          @if (lines().length) {
+            <!-- Explicit roles keep the table semantics when the stacked layout below md changes its display. -->
+            <table class="budget" role="table" aria-label="Budget lines">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">Head</th>
+                  <th scope="col" role="columnheader">Item</th>
+                  <th scope="col" role="columnheader" class="num">Qty</th>
+                  <th scope="col" role="columnheader" class="num">Unit cost</th>
+                  <th scope="col" role="columnheader" class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                @for (l of lines(); track $index) {
+                  <tr role="row">
+                    <td role="cell" class="head">{{ l.head || '—' }}</td>
+                    <td role="cell" class="item">
+                      {{ l.item || '—' }}
+                      @if (l.detail) { <span class="detail">{{ l.detail }}</span> }
+                    </td>
+                    <td role="cell" class="num qty">{{ l.quantity ?? '—' }}<span class="times" aria-hidden="true"> ×</span></td>
+                    <td role="cell" class="num unit">{{ l.unitCostMinor != null ? (l.unitCostMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN') : '—' }}</td>
+                    <td role="cell" class="num amount">{{ l.amountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot role="rowgroup">
+                <tr role="row">
+                  <th scope="row" role="rowheader" colspan="4">Total</th>
+                  <td role="cell" class="num amount">{{ linesTotal() / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</td>
+                </tr>
+              </tfoot>
+            </table>
+            @if (budgetGap(); as gap) {
+              <p class="gap-note">
+                <mat-icon>warning_amber</mat-icon>
+                <span>
+                  Budget lines add up to {{ linesTotal() / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }},
+                  {{ (gap < 0 ? -gap : gap) / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} {{ gap < 0 ? 'less' : 'more' }}
+                  than the amount requested.
+                </span>
+              </p>
+            }
+          } @else {
+            <p class="muted">No budget lines came with this application.</p>
+          }
+          @if (a.budgetNote?.trim()) {
+            <div class="budget-note">
+              <span class="label-mono">Budget note</span>
+              <p class="prose">{{ a.budgetNote?.trim() }}</p>
+            </div>
+          }
+        </section>
+      </div>
+
+      <aside class="side stack">
+        <!-- Applicant -->
+        <section class="surface-card block">
+          <header><mat-icon>apartment</mat-icon><h2>Applicant</h2></header>
+          <div class="org">
+            <span class="org-name">{{ applicant() }}</span>
+            @if (orgKind(); as kind) { <span class="chip">{{ kind }}</span> }
+          </div>
+          @if (org(); as o) {
+            @if (o.contactName || o.contactEmail || telHref() || orgPlace() || o.foundedYear) {
+              <dl class="kv">
+                @if (o.contactName) { <div><dt>Contact</dt><dd>{{ o.contactName }}</dd></div> }
+                @if (o.contactEmail) { <div><dt>Email</dt><dd><a [href]="'mailto:' + o.contactEmail">{{ o.contactEmail }}</a></dd></div> }
+                @if (telHref(); as tel) { <div><dt>Phone</dt><dd><a [href]="tel">{{ o.contactMobile }}</a></dd></div> }
+                @if (orgPlace()) { <div><dt>Location</dt><dd>{{ orgPlace() }}</dd></div> }
+                @if (o.foundedYear) { <div><dt>Founded</dt><dd>{{ o.foundedYear }}</dd></div> }
+              </dl>
+            }
+            @if (o.about?.trim()) { <p class="about">{{ o.about?.trim() }}</p> }
+          } @else {
+            <p class="note"><mat-icon>info</mat-icon><span>The grant service hasn’t shared this organisation’s profile with you yet.</span></p>
+          }
+        </section>
+
+        <!-- Documents -->
+        <section class="surface-card block">
+          <header>
+            <mat-icon>folder_open</mat-icon><h2>Documents</h2>
+            @if (documents().length) { <span class="pill">{{ documents().length }}</span> }
+          </header>
+          @if (documents().length) {
+            <ul class="docs">
+              @for (d of documents(); track $index) {
+                <li>
+                  <mat-icon>description</mat-icon>
+                  <span class="doc">{{ d.label }}@if (d.source) { <span class="muted"> · {{ d.source }}</span> }</span>
+                </li>
+              }
+            </ul>
+          } @else if (requiredDocs().length) {
+            <h3 class="sub">Documents this call asks for</h3>
+            <ul class="docs">
+              @for (d of requiredDocs(); track $index) { <li><mat-icon>description</mat-icon><span class="doc">{{ d }}</span></li> }
+            </ul>
+            <p class="hint">The applicant shares these during review.</p>
+          } @else {
+            <p class="muted">No documents attached, and this call doesn’t ask for any.</p>
+          }
+        </section>
+
+        <!-- Reviews -->
+        <section class="surface-card block">
+          <header>
+            <mat-icon>rate_review</mat-icon><h2>Reviews</h2>
+            @if (a.call.reviewersRequired) {
+              <span class="pill">{{ reviews().length }} of {{ a.call.reviewersRequired }}</span>
+            } @else if (reviews().length) {
+              <span class="pill">{{ reviews().length }}</span>
+            }
+          </header>
+          @if (reviews().length) {
+            <ul class="reviews">
+              @for (r of reviews(); track $index) {
+                <li>
+                  <div class="review-top">
+                    <span class="who">{{ r.reviewer }}</span>
+                    @if (r.recommendation) { <span class="rec" [attr.data-tone]="r.tone">{{ r.recommendation }}</span> }
+                  </div>
+                  @if (r.score != null || r.breakdown) {
+                    <p class="score">
+                      @if (r.score != null) { Score <strong>{{ r.score }}</strong> }
+                      @if (r.score != null && r.breakdown) { · }
+                      {{ r.breakdown }}
+                    </p>
+                  }
+                  @if (r.comment) { <p class="comment">{{ r.comment }}</p> }
+                  <p class="when">
+                    @if (r.submittedAt) { Submitted {{ r.submittedAt | date: 'd MMM y' }} }
+                    @else { {{ r.state || 'Not submitted yet' }} }
+                  </p>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted">
+              No reviews yet.
+              @if (a.call.reviewersRequired) {
+                This call asks for {{ a.call.reviewersRequired }} reviewer{{ a.call.reviewersRequired === 1 ? '' : 's' }} per application.
+              }
+            </p>
+          }
+        </section>
+
+        <!-- Declaration -->
+        <div class="surface-card declaration" [class.missing]="!a.consentGivenAt">
+          <mat-icon>{{ a.consentGivenAt ? 'verified_user' : 'gpp_maybe' }}</mat-icon>
+          <p>
+            @if (a.consentGivenAt) { Declaration accepted on {{ a.consentGivenAt | date: 'd MMM y' }} }
+            @else { No declaration on record }
+          </p>
+        </div>
+      </aside>
+    </div>
+  }
+</div>

@@ -1,11 +1,17 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { Observable, catchError, firstValueFrom, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
+import {
+  Observable, Subject, catchError, filter, finalize, firstValueFrom, forkJoin, map, of, retry, switchMap, take, takeUntil, tap,
+  throwError, timer,
+} from 'rxjs';
 import { APP_CONFIG, Affiliation } from '../config';
 import { AuthApi } from './auth.api';
 import { CurrentUser, LoginRequest, SignUpRequest, Tenant } from './auth.models';
 
-const SESSION_KEY = 'gm-session';
+/** Mock sessions are kept apart, so a mock run can never read, or throw away, a real IAM session (and vice versa). */
+const SESSION_KEY = APP_CONFIG.mockApi ? 'gm-mock-session' : 'gm-session';
 
 /** Holds the session id + current user and exposes login/logout/signup. */
 @Injectable({ providedIn: 'root' })
@@ -16,6 +22,17 @@ export class AuthStore {
   readonly sessionId = signal<string | null>(read());
   readonly user = signal<CurrentUser | null>(null);
   readonly isLoggedIn = computed(() => !!this.sessionId());
+  /**
+   * True when the stored session couldn't be checked because IAM was unreachable or failing. The session is kept:
+   * the app shows a retry screen instead of the login page, and routing waits (see auth.guards.ts).
+   */
+  readonly restoreFailed = signal(false);
+  /** Emits once the stored session has been checked, i.e. as soon as `restoreFailed` is false. */
+  readonly sessionChecked$: Observable<unknown> = toObservable(this.restoreFailed).pipe(filter(failed => !failed), take(1));
+
+  private verifying = false;
+  /** Fires when the session is cleared, so a restore still in flight can't sign the user back in. */
+  private readonly cleared$ = new Subject<void>();
 
   login(req: LoginRequest): Observable<CurrentUser> {
     return this.api.login(req).pipe(switchMap(id => this.startSession(id)));
@@ -47,14 +64,45 @@ export class AuthStore {
     return id ? this.startSession(id) : throwError(() => new Error('Not signed in'));
   }
 
-  /** Restores the user for a stored session on app start; clears it if the server rejects it. */
-  restore(): Promise<unknown> {
+  /**
+   * Restores the user for a stored session on app start (and on every refresh or live reload).
+   * Only IAM rejecting the session (401) signs the user out; a network blip, a gateway restart or a server error
+   * keeps the session and sets `restoreFailed` so the user can retry.
+   */
+  restore(): Promise<void> {
     const id = this.sessionId();
     if (!id) return Promise.resolve();
+    // restoreFailed only changes once the check is over: flipping it early would release the waiting guards
+    // (auth.guards.ts) before the user is loaded.
     return firstValueFrom(this.startSession(id).pipe(
-      map(() => undefined),
-      catchError(() => { this.clear(); return of(undefined); }),
-    ));
+      // Unreachable or restarting gateway: try twice more (after 1s, then 2s) before showing the retry screen.
+      retry({ count: 2, delay: (err, attempt) => isTransient(err) ? timer(attempt * 1000) : throwError(() => err) }),
+      map(() => this.restoreFailed.set(false)),
+      catchError(err => {
+        if (isRejected(err)) this.clear();
+        else this.restoreFailed.set(true);
+        return of(undefined);
+      }),
+      // Signed out meanwhile (e.g. "Sign out" pressed during "Try again"): drop the result.
+      takeUntil(this.cleared$),
+    ), { defaultValue: undefined });
+  }
+
+  /**
+   * Called after IAM answers 401. IAM also uses 401 for "not allowed to do this", so that alone doesn't mean the
+   * session ended: sign out only if IAM rejects the session itself.
+   */
+  verifySession() {
+    const id = this.sessionId();
+    if (!id || this.verifying) return;
+    this.verifying = true;
+    this.api.sessionContext(id).pipe(finalize(() => (this.verifying = false))).subscribe({
+      error: (err: unknown) => {
+        if (!isRejected(err) || this.sessionId() !== id) return;
+        this.clear();
+        this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
+      },
+    });
   }
 
   logout() {
@@ -64,9 +112,13 @@ export class AuthStore {
   }
 
   clear() {
+    const id = this.sessionId();
+    this.cleared$.next();
     this.sessionId.set(null);
     this.user.set(null);
-    try { localStorage.removeItem(SESSION_KEY); } catch {}
+    this.restoreFailed.set(false);
+    // Another tab may have signed in since: only forget the stored session if it's still the one this tab used.
+    try { if (localStorage.getItem(SESSION_KEY) === id) localStorage.removeItem(SESSION_KEY); } catch {}
   }
 
   /** Resolves session → user + tenant type + approval, then stores it. */
@@ -103,6 +155,16 @@ export class AuthStore {
 export function affiliationOf(tenant: Pick<Tenant, 'tenantType'> | null): Affiliation | null {
   const entry = Object.entries(APP_CONFIG.tenantTypes).find(([, type]) => type === tenant?.tenantType);
   return (entry?.[0] as Affiliation) ?? null;
+}
+
+/** IAM says the session is gone (expired, signed out elsewhere, or never existed). */
+function isRejected(err: unknown): boolean {
+  return err instanceof HttpErrorResponse && err.status === 401;
+}
+
+/** Worth retrying: no response at all, or the gateway / dev-server proxy couldn't reach IAM. */
+function isTransient(err: unknown): boolean {
+  return err instanceof HttpErrorResponse && [0, 502, 503, 504].includes(err.status);
 }
 
 function read(): string | null {

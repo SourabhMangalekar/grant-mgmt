@@ -1,0 +1,453 @@
+<div class="page">
+  <a class="back-link" [routerLink]="['/grant-calls', id(), 'applications', applicationId()]"><mat-icon>arrow_back</mat-icon> Back to the application</a>
+
+  @if (state() === 'loading') {
+    <div class="loading-state"><mat-spinner diameter="32" aria-label="Loading the grant" /></div>
+  } @else if (state() === 'error') {
+    <div class="surface-card empty-state">
+      <span class="empty-icon error"><mat-icon>{{ notFound() ? 'search_off' : 'error_outline' }}</mat-icon></span>
+      @if (notFound()) {
+        <h1 class="state-title">Application not found</h1>
+        <p>It doesn’t exist, or it isn’t for this call.</p>
+        <div class="empty-actions">
+          <a mat-flat-button [routerLink]="['/grant-calls', id(), 'applications']"><mat-icon>arrow_back</mat-icon> Back to applications</a>
+        </div>
+      } @else {
+        <h1 class="state-title">Couldn’t load this grant</h1>
+        <p>The grant service didn’t respond. Check your connection and try again.</p>
+        <div class="empty-actions">
+          <a mat-stroked-button [routerLink]="['/grant-calls', id(), 'applications', applicationId()]"><mat-icon>arrow_back</mat-icon> Back to the application</a>
+          <button mat-flat-button type="button" (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button>
+        </div>
+      }
+    </div>
+  } @else if (app(); as a) {
+    @if (award(); as w) {
+      @let cur = currency();
+      @let sums = totals();
+
+      <header class="page-header">
+        <div class="heading">
+          <span class="eyebrow">Grant · {{ w.awardCode || '#' + w.id }}</span>
+          <h1>{{ title() }}</h1>
+          <p class="meta">
+            <span class="applicant"><mat-icon>apartment</mat-icon>{{ applicant() }}</span>
+            <span>for <a [routerLink]="['/grant-calls', id()]">{{ a.call.title || 'this call for proposals' }}</a></span>
+            <gm-tranche-state [state]="w.state" />
+          </p>
+        </div>
+      </header>
+
+      <!-- Where the money is -->
+      <section class="surface-card summary" aria-label="Grant summary">
+        <dl class="figures">
+          <div>
+            <dt>Awarded</dt>
+            <dd>{{ w.awardedAmountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</dd>
+          </div>
+          <div>
+            <dt>Released so far</dt>
+            <dd>{{ sums.released / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</dd>
+          </div>
+          <div>
+            <dt>Accounted for</dt>
+            <dd>{{ sums.utilised / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }}</dd>
+          </div>
+          <div>
+            <dt>Tranches</dt>
+            <dd>
+              @if (sums.count) { {{ sums.utilisedCount }} of {{ sums.count }} <span class="dd-note">utilised</span> }
+              @else { <span class="dd-note">Not set up yet</span> }
+            </dd>
+          </div>
+        </dl>
+        @if (sums.count) {
+          <span class="bar" aria-hidden="true"><span [style.width.%]="sums.progress"></span></span>
+        }
+        @if (nextStep(); as next) {
+          <p class="next"><mat-icon>{{ closed() ? 'verified' : 'arrow_forward' }}</mat-icon><span>{{ next }}</span></p>
+        }
+      </section>
+
+      <!-- Outcome of award-wide steps (set-up, close). Always present so screen readers announce what appears in it. -->
+      <div role="status">
+        @if (success(); as m) {
+          @if (m.at === 'award') {
+            <div class="auth-alert success outcome" #result tabindex="-1">
+              <mat-icon>check_circle</mat-icon><span class="text">{{ m.text }}</span>
+              <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+            </div>
+          }
+        }
+      </div>
+      @if (error(); as m) {
+        @if (m.at === 'award') {
+          <div class="auth-alert error outcome" role="alert" #result tabindex="-1">
+            <mat-icon>error</mat-icon><span class="text">{{ m.text }}</span>
+            <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+          </div>
+        }
+      }
+
+      @if (bundlesFailed()) {
+        <div class="surface-card empty-state compact">
+          <span class="empty-icon error"><mat-icon>cloud_off</mat-icon></span>
+          <h2>Couldn’t load the tranches</h2>
+          <p>The grant service didn’t send them. Try again in a moment.</p>
+          <div class="empty-actions">
+            <button mat-flat-button type="button" (click)="refresh()" [disabled]="refreshing()" disabledInteractive>
+              @if (refreshing()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+              @else { <mat-icon>refresh</mat-icon> }
+              {{ refreshing() ? 'Loading…' : 'Try again' }}
+            </button>
+          </div>
+        </div>
+      } @else if (!bundles().length) {
+        <!-- No tranches yet: split the grant -->
+        <section class="surface-card block" aria-labelledby="setup-title">
+          <header class="block-head">
+            <mat-icon>account_tree</mat-icon>
+            <div>
+              <h2 id="setup-title">Set up the tranches</h2>
+              <p class="muted">
+                Split the {{ w.awardedAmountMinor / 100 | currency: cur : 'symbol' : '1.0-0' : 'en-IN' }} grant into 2 to 4 payments.
+                Each is released once its plan is approved, and the next opens once you approve the report on the previous one.
+              </p>
+            </div>
+          </header>
+          <gm-tranche-setup-form [totalMinor]="w.awardedAmountMinor" [currency]="cur" [busy]="busy() === 'setup'" (submitted)="setUp($event)" />
+        </section>
+      } @else {
+        <!-- The tranches, in order -->
+        <section class="tranches-section" aria-labelledby="tranches-title">
+          <div class="section-head">
+            <h2 id="tranches-title">Tranches</h2>
+            <button mat-button type="button" (click)="refresh()" [disabled]="refreshing() || !!busy()" disabledInteractive>
+              @if (refreshing()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+              @else { <mat-icon>refresh</mat-icon> }
+              {{ refreshing() ? 'Checking…' : 'Check for updates' }}
+            </button>
+          </div>
+
+          <ol class="tranches">
+            @for (b of bundles(); track b.tranche.id) {
+              @let t = b.tranche;
+              @let open = active()?.tranche?.id === t.id;
+              <li class="surface-card tranche" [attr.aria-current]="open ? 'step' : null" [class.open]="open" [class.locked]="b.stage === 'locked'" [class.done]="b.stage === 'utilised'">
+                <header class="t-head">
+                  <span class="t-no" aria-hidden="true">
+                    @switch (b.stage) {
+                      @case ('utilised') { <mat-icon>check</mat-icon> }
+                      @case ('locked') { <mat-icon>lock</mat-icon> }
+                      @default { {{ t.sequenceNo }} }
+                    }
+                  </span>
+                  <div class="t-title">
+                    <h3>Tranche {{ t.sequenceNo }}@if (t.milestoneLabel) { · {{ t.milestoneLabel }} }</h3>
+                    <p class="t-amount">
+                      <strong>{{ t.amountMinor / 100 | currency: t.currencyCode || cur : 'symbol' : '1.0-0' : 'en-IN' }}</strong>
+                      @if (t.percentage != null) { <span class="muted"> · {{ t.percentage | number: '1.0-2' }}% of the grant</span> }
+                    </p>
+                  </div>
+                  <gm-tranche-state class="t-state" [state]="t.state" />
+                </header>
+
+                @if (t.plannedAt || t.reportDueAt) {
+                  <dl class="t-dates">
+                    @if (t.plannedAt) { <div><dt>Planned release</dt><dd>{{ t.plannedAt | date: 'd MMM y' }}</dd></div> }
+                    @if (t.reportDueAt) {
+                      <div [class.overdue]="overdue(b)">
+                        <dt>Report due</dt>
+                        <dd>{{ t.reportDueAt | date: 'd MMM y' }}@if (overdue(b)) { <span class="flag">Overdue</span> }</dd>
+                      </div>
+                    }
+                  </dl>
+                }
+
+                <!-- Outcome of this tranche's last step -->
+                <div role="status">
+                  @if (success(); as m) {
+                    @if (m.at === t.id) {
+                      <div class="auth-alert success outcome" #result tabindex="-1">
+                        <mat-icon>check_circle</mat-icon><span class="text">{{ m.text }}</span>
+                        <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+                      </div>
+                    }
+                  }
+                </div>
+                @if (error(); as m) {
+                  @if (m.at === t.id) {
+                    <div class="auth-alert error outcome" role="alert" #result tabindex="-1">
+                      <mat-icon>error</mat-icon><span class="text">{{ m.text }}</span>
+                      <button mat-icon-button type="button" class="dismiss" (click)="dismiss()" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
+                    </div>
+                  }
+                }
+
+                @if (b.stage !== 'locked') {
+                  <div class="t-body">
+                    @switch (b.stage) {
+                      <!-- Waiting for the applicant's plan -->
+                      @case ('awaiting-plan') {
+                        <p class="waiting"><mat-icon>hourglass_empty</mat-icon><span>Waiting for {{ applicant() }}’s plan for this tranche.</span></p>
+                        <p class="hint">If they say they’ve sent it and it isn’t showing, the grant service may not be sharing their records with you yet.</p>
+                        @if (open && debug) {
+                          @if (asApplicant()) {
+                            <div class="stand-in">
+                              <p class="stand-in-note"><mat-icon>science</mat-icon><span>Test mode: you’re writing this plan as the applicant.</span></p>
+                              <gm-tranche-plan-form [tranche]="t" [busy]="busy() === 'applicant'" submitLabel="Submit test plan"
+                                                    (submitted)="submitTestPlan(t, $event)" (cancelled)="asApplicant.set(false)" />
+                            </div>
+                          } @else {
+                            <div class="actions start">
+                              <button mat-stroked-button type="button" (click)="asApplicant.set(true)" [disabled]="!!busy()" disabledInteractive>
+                                <mat-icon>science</mat-icon> Submit a test plan as the applicant
+                              </button>
+                            </div>
+                          }
+                        }
+                      }
+
+                      <!-- Plan sent: approve it or ask for changes (the decision form follows) -->
+                      @case ('plan-review') {
+                        @if (b.plan; as plan) { <gm-tranche-plan-view [plan]="plan" [tranche]="t" /> }
+                      }
+
+                      <!-- Sent back: the applicant revises the plan -->
+                      @case ('plan-changes') {
+                        @if (b.plan; as plan) {
+                          <gm-tranche-plan-view [plan]="plan" [tranche]="t" />
+                          <p class="waiting"><mat-icon>hourglass_empty</mat-icon><span>Waiting for {{ applicant() }} to revise the plan.</span></p>
+                          @if (open && debug) {
+                            @if (asApplicant()) {
+                              <div class="stand-in">
+                                <p class="stand-in-note"><mat-icon>science</mat-icon><span>Test mode: you’re revising this plan as the applicant.</span></p>
+                                <gm-tranche-plan-form [tranche]="t" [initial]="plan.tranchePlanItems ?? []" [busy]="busy() === 'applicant'"
+                                                      submitLabel="Resubmit test plan"
+                                                      (submitted)="reviseTestPlan(t, plan, $event)" (cancelled)="asApplicant.set(false)" />
+                              </div>
+                            } @else {
+                              <div class="actions start">
+                                <button mat-stroked-button type="button" (click)="asApplicant.set(true)" [disabled]="!!busy()" disabledInteractive>
+                                  <mat-icon>science</mat-icon> Revise as the applicant
+                                </button>
+                              </div>
+                            }
+                          }
+                        }
+                      }
+
+                      <!-- Plan approved: release the payment -->
+                      @case ('ready') {
+                        @if (b.plan; as plan) {
+                          <details class="disclosure">
+                            <summary>Approved plan<span class="muted"> · {{ plan.tranchePlanItems?.length ?? 0 }} {{ plan.tranchePlanItems?.length === 1 ? 'activity' : 'activities' }}</span></summary>
+                            <div class="disclosure-body"><gm-tranche-plan-view [plan]="plan" [tranche]="t" /></div>
+                          </details>
+                        }
+                        @if (open) {
+                          <form class="panel" [formGroup]="releaseForm" (ngSubmit)="release(t)" novalidate>
+                            <h4>Release the payment</h4>
+                            <p>
+                              Transfer {{ t.amountMinor / 100 | currency: t.currencyCode || cur : 'symbol' : '1.0-0' : 'en-IN' }} to {{ applicant() }}
+                              from your bank, then record it here with the bank’s reference.
+                            </p>
+                            <div class="release-fields">
+                              <mat-form-field appearance="outline" class="f-mode">
+                                <mat-label>Payment mode</mat-label>
+                                <mat-select formControlName="paymentMode">
+                                  @for (m of paymentModes; track m.value) { <mat-option [value]="m.value">{{ m.label }}</mat-option> }
+                                </mat-select>
+                              </mat-form-field>
+                              <mat-form-field appearance="outline" class="f-ref">
+                                <mat-label>Payment reference (UTR)</mat-label>
+                                <input matInput formControlName="paymentReference" maxlength="120" autocomplete="off" spellcheck="false">
+                                <mat-hint>From the bank’s confirmation of the transfer</mat-hint>
+                                @if (releaseForm.controls.paymentReference.hasError('required') || releaseForm.controls.paymentReference.hasError('pattern')) {
+                                  <mat-error>Enter the bank’s payment reference</mat-error>
+                                }
+                              </mat-form-field>
+                            </div>
+                            <div class="actions">
+                              <button mat-flat-button type="submit" [disabled]="!!busy()" disabledInteractive>
+                                @if (busy() === 'release') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                                @else { <mat-icon>payments</mat-icon> }
+                                {{ busy() === 'release' ? 'Recording…' : 'Record payment' }}
+                              </button>
+                            </div>
+                          </form>
+                        }
+                      }
+
+                      <!-- Paid: waiting for the applicant's report -->
+                      @case ('awaiting-report') {
+                        <dl class="facts">
+                          <div><dt>Paid on</dt><dd>{{ (t.paidAt | date: 'd MMM y') ?? '—' }}</dd></div>
+                          <div><dt>Mode</dt><dd>{{ modeLabel(t.paymentMode) }}</dd></div>
+                          <div><dt>Reference</dt><dd class="mono">{{ t.paymentReference || '—' }}</dd></div>
+                        </dl>
+                        <p class="waiting"><mat-icon>hourglass_empty</mat-icon><span>Waiting for {{ applicant() }}’s report on how it was used.</span></p>
+                        <p class="hint">If they say they’ve sent it and it isn’t showing, the grant service may not be sharing their records with you yet.</p>
+                        @if (open && debug) {
+                          @if (asApplicant()) {
+                            <div class="stand-in">
+                              <p class="stand-in-note"><mat-icon>science</mat-icon><span>Test mode: you’re writing this report as the applicant.</span></p>
+                              <gm-tranche-report-form [tranche]="t" [planItems]="b.plan?.tranchePlanItems ?? []" [busy]="busy() === 'applicant'"
+                                                      submitLabel="Submit test report"
+                                                      (submitted)="submitTestReport(t, $event)" (cancelled)="asApplicant.set(false)" />
+                            </div>
+                          } @else {
+                            <div class="actions start">
+                              <button mat-stroked-button type="button" (click)="asApplicant.set(true)" [disabled]="!!busy()" disabledInteractive>
+                                <mat-icon>science</mat-icon> Submit a test report as the applicant
+                              </button>
+                            </div>
+                          }
+                        }
+                      }
+
+                      <!-- Report sent: approve it or ask for changes (the decision form follows) -->
+                      @case ('report-review') {
+                        <p class="paid-line"><mat-icon>payments</mat-icon><span>Paid on {{ (t.paidAt | date: 'd MMM y') ?? '—' }} by {{ modeLabel(t.paymentMode) }} · <span class="mono">{{ t.paymentReference || '—' }}</span></span></p>
+                        @if (b.report; as report) { <gm-tranche-report-view [report]="report" [planItems]="b.plan?.tranchePlanItems ?? []" [tranche]="t" /> }
+                      }
+
+                      <!-- Sent back: the applicant revises the report -->
+                      @case ('report-changes') {
+                        <p class="paid-line"><mat-icon>payments</mat-icon><span>Paid on {{ (t.paidAt | date: 'd MMM y') ?? '—' }} by {{ modeLabel(t.paymentMode) }} · <span class="mono">{{ t.paymentReference || '—' }}</span></span></p>
+                        @if (b.report; as report) {
+                          <gm-tranche-report-view [report]="report" [planItems]="b.plan?.tranchePlanItems ?? []" [tranche]="t" />
+                          <p class="waiting"><mat-icon>hourglass_empty</mat-icon><span>Waiting for {{ applicant() }} to revise the report.</span></p>
+                          @if (open && debug) {
+                            @if (asApplicant()) {
+                              <div class="stand-in">
+                                <p class="stand-in-note"><mat-icon>science</mat-icon><span>Test mode: you’re revising this report as the applicant.</span></p>
+                                <gm-tranche-report-form [tranche]="t" [planItems]="b.plan?.tranchePlanItems ?? []" [initial]="report"
+                                                        [busy]="busy() === 'applicant'" submitLabel="Resubmit test report"
+                                                        (submitted)="reviseTestReport(t, report, $event)" (cancelled)="asApplicant.set(false)" />
+                              </div>
+                            } @else {
+                              <div class="actions start">
+                                <button mat-stroked-button type="button" (click)="asApplicant.set(true)" [disabled]="!!busy()" disabledInteractive>
+                                  <mat-icon>science</mat-icon> Revise as the applicant
+                                </button>
+                              </div>
+                            }
+                          }
+                        }
+                      }
+
+                      <!-- Done: paid and accounted for -->
+                      @case ('utilised') {
+                        <dl class="facts">
+                          <div><dt>Paid on</dt><dd>{{ (t.paidAt | date: 'd MMM y') ?? '—' }}</dd></div>
+                          <div><dt>Reference</dt><dd class="mono">{{ t.paymentReference || '—' }}</dd></div>
+                          <div>
+                            <dt>Spent</dt>
+                            @let spent = b.report?.spentMinor;
+                            <dd>
+                              @if (spent != null) {
+                                {{ spent / 100 | currency: t.currencyCode || cur : 'symbol' : '1.0-0' : 'en-IN' }}
+                                <span class="dd-note">of {{ t.amountMinor / 100 | currency: t.currencyCode || cur : 'symbol' : '1.0-0' : 'en-IN' }}</span>
+                              } @else { — }
+                            </dd>
+                          </div>
+                        </dl>
+                        @if (b.plan || b.report) {
+                          <details class="disclosure">
+                            <summary>Show plan and report</summary>
+                            <div class="disclosure-body">
+                              @if (b.plan; as plan) {
+                                <h4>Plan</h4>
+                                <gm-tranche-plan-view [plan]="plan" [tranche]="t" />
+                              }
+                              @if (b.report; as report) {
+                                <h4>Report</h4>
+                                <gm-tranche-report-view [report]="report" [planItems]="b.plan?.tranchePlanItems ?? []" [tranche]="t" />
+                              }
+                            </div>
+                          </details>
+                        }
+                      }
+
+                      @default {
+                        <p class="muted">This tranche is “{{ stateLabel(t.state) }}”, so there’s nothing to do here yet.</p>
+                      }
+                    }
+
+                    <!-- The funder's decision on a plan or report waiting for review -->
+                    @let kind = b.stage === 'plan-review' ? 'plan' : b.stage === 'report-review' ? 'report' : null;
+                    @if (open && kind) {
+                      @let comment = decisionForm.controls.comment;
+                      <form class="panel" [formGroup]="decisionForm" (ngSubmit)="decide(b)" novalidate>
+                        <h4>Your decision on the {{ kind }}</h4>
+                        <mat-button-toggle-group class="choice" [value]="decision()" (change)="setDecision($event.value)"
+                                                 [attr.aria-label]="'Decision on the ' + kind" hideSingleSelectionIndicator>
+                          <mat-button-toggle value="approve"><mat-icon>task_alt</mat-icon> Approve</mat-button-toggle>
+                          <mat-button-toggle value="changes"><mat-icon>edit_note</mat-icon> Request changes</mat-button-toggle>
+                        </mat-button-toggle-group>
+                        <mat-form-field appearance="outline">
+                          <mat-label>{{ decision() === 'approve' ? 'Comment for the applicant (optional)' : 'What should they change?' }}</mat-label>
+                          <textarea matInput formControlName="comment" maxlength="1000" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+                          <mat-hint>The applicant sees this.</mat-hint>
+                          @if (comment.hasError('required')) { <mat-error>Tell the applicant what to change</mat-error> }
+                        </mat-form-field>
+                        <div class="actions">
+                          <button mat-flat-button type="submit" [disabled]="!!busy()" disabledInteractive>
+                            @if (busy() === kind) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                            @else { <mat-icon>{{ decision() === 'approve' ? 'task_alt' : 'undo' }}</mat-icon> }
+                            {{ busy() === kind ? 'Saving…' : decision() === 'approve' ? 'Approve ' + kind : 'Request changes' }}
+                          </button>
+                        </div>
+                      </form>
+                    }
+                  </div>
+                } @else {
+                  <p class="waiting locked-note">
+                    @if (t.sequenceNo > 1) { Unlocks once you approve the report on tranche {{ t.sequenceNo - 1 }}. }
+                    @else { Unlocks when the previous tranche is utilised. }
+                  </p>
+                }
+              </li>
+            }
+          </ol>
+        </section>
+
+        @if (canClose()) {
+          <!-- Every tranche utilised: close the grant -->
+          <section class="surface-card block close" aria-labelledby="close-title">
+            <header class="block-head">
+              <mat-icon>flag</mat-icon>
+              <div>
+                <h2 id="close-title">Close the grant</h2>
+                <p class="muted">Every tranche has been paid and accounted for. Closing the grant marks it as completed.</p>
+              </div>
+            </header>
+            <mat-form-field appearance="outline">
+              <mat-label>Closing note (optional)</mat-label>
+              <textarea matInput [formControl]="closeComment" maxlength="1000" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="6"></textarea>
+            </mat-form-field>
+            <div class="actions">
+              <button mat-flat-button type="button" (click)="closeGrant()" [disabled]="!!busy()" disabledInteractive>
+                @if (busy() === 'close') { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+                @else { <mat-icon>flag</mat-icon> }
+                {{ busy() === 'close' ? 'Closing…' : 'Close the grant' }}
+              </button>
+            </div>
+          </section>
+        }
+      }
+    } @else {
+      <!-- Approved applications get an award; this one hasn't (yet), or the service isn't sharing it -->
+      <div class="surface-card empty-state">
+        <span class="empty-icon"><mat-icon>request_quote</mat-icon></span>
+        <h1 class="state-title">No award yet</h1>
+        <p>“{{ title() }}” has no award yet: approve it first. Its grant and tranches are managed here once it’s approved.</p>
+        <p class="small">Already approved? The grant service may not be sharing the award with you yet: try again in a little while.</p>
+        <div class="empty-actions">
+          <a mat-flat-button [routerLink]="['/grant-calls', id(), 'applications', applicationId()]"><mat-icon>arrow_back</mat-icon> Go to the application</a>
+        </div>
+      </div>
+    }
+  }
+</div>

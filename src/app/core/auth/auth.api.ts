@@ -7,6 +7,12 @@ import {
   SignUpRequest, Tenant, TenantRef, UserVerification,
 } from './auth.models';
 
+/**
+ * Upper bound (ms) for the reads that check a session on startup. A hung gateway would otherwise hold the app on a blank
+ * page indefinitely; a timeout comes back as status 0, which AuthStore.restore() retries before showing its retry screen.
+ */
+const SESSION_CHECK_TIMEOUT = 10_000;
+
 /** A response that carried a session id in its headers. */
 export interface WithSession<T> { sessionId: string; body: T }
 
@@ -31,12 +37,13 @@ export class AuthApi {
 
   /** `/api/v2/session/me` 401s on this platform, so use the context endpoint. */
   sessionContext(sessionId?: string): Observable<PlatformToken> {
-    return this.http.get<PlatformToken>(`${this.base}/api/v1/session/context`, { headers: withSession(sessionId) });
+    return this.http.get<PlatformToken>(`${this.base}/api/v1/session/context`,
+      { headers: withSession(sessionId), timeout: SESSION_CHECK_TIMEOUT });
   }
 
   /** The logged-in user's tenant, including tenantType. */
   currentTenant(sessionId?: string): Observable<Tenant> {
-    return this.http.get<Tenant>(`${this.base}/api/v1/tenants/me`, { headers: withSession(sessionId) });
+    return this.http.get<Tenant>(`${this.base}/api/v1/tenants/me`, { headers: withSession(sessionId), timeout: SESSION_CHECK_TIMEOUT });
   }
 
   /**
@@ -133,7 +140,7 @@ export class AuthApi {
   /** Resolves to null when the user has no verification record. */
   verification(userId: number, session?: string): Observable<UserVerification | null> {
     return this.http.get<UserVerification>(`${this.base}/api/v1/user-verification`, {
-      headers: withSession(session), params: verificationParams(userId),
+      headers: withSession(session), params: verificationParams(userId), timeout: SESSION_CHECK_TIMEOUT,
     }).pipe(catchError((err: HttpErrorResponse) => err.status === 404 ? of(null) : throwError(() => err)));
   }
 }

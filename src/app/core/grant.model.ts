@@ -1,4 +1,4 @@
-export type GrantStatus = 'Draft' | 'In Review' | 'Approved' | 'Rejected' | 'Closed';
+export type GrantStatus = 'Draft' | 'Screening' | 'In Review' | 'In Committee' | 'Approved' | 'Rejected' | 'Closed';
 
 export interface Grant {
   id: string;
@@ -8,4 +8,6 @@ export interface Grant {
   amount: number;
   status: GrantStatus;
   submittedOn: string;
+  /** The grant service's numeric application id, for links to the application. */
+  appId?: number;
 }

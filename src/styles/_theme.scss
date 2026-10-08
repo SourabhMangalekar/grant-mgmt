@@ -15,6 +15,11 @@ html {
   @include mat.sidenav-overrides((container-shape: 0));
   @include mat.button-overrides((filled-container-shape: var(--gm-radius-md)));
   @include mat.list-overrides((active-indicator-shape: var(--gm-radius-md)));
+  // Dialogs default to the page's own surface colour, which makes them vanish on the navy dark theme: raise them.
+  @include mat.dialog-overrides((
+    container-color: var(--mat-sys-surface-container-high),
+    container-shape: var(--gm-radius-lg),
+  ));
   @include mat.toolbar-overrides((
     container-background-color: var(--mat-sys-surface),
     container-text-color: var(--mat-sys-on-surface),

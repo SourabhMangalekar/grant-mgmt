@@ -8,8 +8,11 @@ export const APP_CONFIG = {
   grantBaseUrl: environment.grantServiceUrl,
   /** Prefill forms with sample data (environment.debugMode === 1). */
   debugMode: environment.debugMode === 1,
-  /** Serve IAM endpoints from an in-browser mock (see core/auth/mock-iam.interceptor.ts) instead of the gateway. */
-  mockApi: false,
+  /**
+   * Answer IAM and grant-service calls from an in-browser mock (core/auth/mock-iam.interceptor.ts) instead of the backends.
+   * Only the `mock` build configuration turns it on (`ng serve --configuration mock`), so it can't leak into a normal run.
+   */
+  mockApi: environment.mockApi,
   /** Header that carries the session id. Some IAM endpoints return it as `SESSIONID` instead. */
   sessionHeader: 'X-SESSIONID',
 

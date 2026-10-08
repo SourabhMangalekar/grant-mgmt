@@ -3,16 +3,19 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormBuilder, FormControl, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CurrencyPipe } from '@angular/common';
+import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { GrantCall, GrantCallApi } from '../../../core/grant-call.api';
+import { GrantCall, GrantCallApi, CallState } from '../../../core/grant-call.api';
 import { APP_CONFIG } from '../../../core/config';
+import { apiErrorMessage } from '../../../core/api-error';
 
 export const THEMES = ['Education', 'Health', 'Livelihoods', 'Environment', 'Water & Sanitation', 'Women Empowerment', 'Disaster Relief', 'Other'];
 
@@ -41,11 +44,28 @@ export const REQUIRED_DOCS = [
   { code: 'ANNUAL_REPORT', label: 'Latest annual report' },
 ];
 
-/** Opens before it closes; min ≤ max ≤ envelope. */
+/** Local midnight of `d` plus `days` — datepicker values are always start-of-day Dates. */
+const startOfDay = (d: Date, days = 0) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+
+/** Calls can be scheduled up to this far ahead; also catches year typos like 2062 for 2026. */
+const MAX_YEARS_AHEAD = 2;
+
+/** The two states this form can save a call in: kept private (DRAFT) or made public to grantees (PUBLISHED). */
+type SaveState = Extract<CallState, 'DRAFT' | 'PUBLISHED'>;
+
+/** Selectable "reviewers per application" — same 1–10 range as the validators. */
+const REVIEWER_COUNTS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+/**
+ * Opens before it closes; min ≤ max ≤ envelope.
+ * (mat-date-range-input also flags the same date clash on the controls as matStartDateInvalid / matEndDateInvalid.)
+ */
 const consistent: ValidatorFn = (g: AbstractControl): ValidationErrors | null => {
   const v = g.value;
   const errors: ValidationErrors = {};
-  if (v.opensAt && v.closesAt && v.closesAt < v.opensAt) errors['closesBeforeOpens'] = true;
+  if (v.opensAt instanceof Date && v.closesAt instanceof Date && v.closesAt.getTime() < v.opensAt.getTime()) {
+    errors['closesBeforeOpens'] = true;
+  }
   if (v.minAward != null && v.maxAward != null && v.minAward > v.maxAward) errors['minAboveMax'] = true;
   if (v.maxAward != null && v.envelope != null && v.maxAward > v.envelope) errors['maxAboveEnvelope'] = true;
   return Object.keys(errors).length ? errors : null;
@@ -53,12 +73,13 @@ const consistent: ValidatorFn = (g: AbstractControl): ValidationErrors | null =>
 
 /**
  * "New call for proposals" — a granter publishes a call for proposals (commons-grant-service POST /grant-calls).
- * Saved either as a draft or published (state OPEN) so grantees see it under "Open calls".
+ * Saved either as a draft (DRAFT) or published (PUBLISHED) so grantees see it under "Open calls".
  */
 @Component({
   selector: 'gm-grant-call-form',
-  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatSlideToggleModule, MatCheckboxModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, TextFieldModule, MatFormFieldModule, MatInputModule,
+    MatDatepickerModule, MatSelectModule, MatSlideToggleModule, MatCheckboxModule, MatButtonModule, MatIconModule,
+    MatProgressSpinnerModule],
   templateUrl: './grant-call-form.html',
   styleUrl: './grant-call-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,7 +92,12 @@ export class GrantCallForm {
   protected readonly themes = THEMES;
   protected readonly scheduleVii = SCHEDULE_VII;
   protected readonly docs = REQUIRED_DOCS;
-  protected readonly saving = signal<'DRAFT' | 'OPEN' | null>(null);
+  protected readonly reviewerCounts = REVIEWER_COUNTS;
+  protected readonly maxYearsAhead = MAX_YEARS_AHEAD;
+  /** Application window bounds: from today (a call can open today) to MAX_YEARS_AHEAD years out. */
+  protected readonly minDate = startOfDay(new Date());
+  protected readonly maxDate = new Date(this.minDate.getFullYear() + MAX_YEARS_AHEAD, this.minDate.getMonth(), this.minDate.getDate());
+  protected readonly saving = signal<SaveState | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
@@ -82,8 +108,8 @@ export class GrantCallForm {
     envelope: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
     minAward: this.fb.control<number | null>(null, Validators.min(0)),
     maxAward: this.fb.control<number | null>(null, Validators.min(1)),
-    opensAt: ['', Validators.required],
-    closesAt: ['', Validators.required],
+    opensAt: this.fb.control<Date | null>(null, Validators.required),
+    closesAt: this.fb.control<Date | null>(null, Validators.required),
     reviewersRequired: [2, [Validators.required, Validators.min(1), Validators.max(10)]],
     isCsrFunded: [false],
     scheduleViiCode: [''],
@@ -120,11 +146,6 @@ export class GrantCallForm {
 
   /** Debug mode only: a complete, valid CSR call so "Publish call" can be tested in one click. */
   private prefill() {
-    const iso = (daysFromNow: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() + daysFromNow);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    };
     const stamp = new Date().toISOString().slice(5, 16).replace(/[-T:]/g, '');
     this.form.patchValue({
       title: `[TEST] Foundational Literacy & Numeracy ${stamp}`,
@@ -135,8 +156,8 @@ export class GrantCallForm {
       envelope: 5000000,
       minAward: 500000,
       maxAward: 1500000,
-      opensAt: iso(1),
-      closesAt: iso(45),
+      opensAt: startOfDay(new Date(), 1),
+      closesAt: startOfDay(new Date(), 45),
       reviewersRequired: 2,
       responseFormat: 'QUESTIONS',
       budgetFormat: 'LINE_ITEMS',
@@ -155,30 +176,31 @@ export class GrantCallForm {
   protected toggleDoc(code: string, on: boolean) { this.ensureDoc(code, on); }
   protected hasDoc(code: string) { return this.form.controls.requiredDocs.value.includes(code); }
 
-  protected save(state: 'DRAFT' | 'OPEN') {
+  protected save(state: SaveState) {
     // Drafts only need a title; publishing needs everything.
-    if (state === 'OPEN' ? this.form.invalid : this.form.controls.title.invalid) {
+    if (state === 'PUBLISHED' ? this.form.invalid : this.form.controls.title.invalid) {
       this.form.markAllAsTouched();
-      this.error.set(state === 'OPEN' ? 'Fix the highlighted fields before publishing.' : 'Give the call a title to save it as a draft.');
+      this.error.set(state === 'PUBLISHED' ? 'Fix the highlighted fields before publishing.' : 'Give the call a title to save it as a draft.');
       return;
     }
     this.saving.set(state);
     this.error.set(null);
     this.api.create(this.toDto(state)).subscribe({
-      next: () => this.router.navigate(['/grant-calls'], { queryParams: { created: state === 'OPEN' ? 'published' : 'draft' } }),
+      next: () => this.router.navigate(['/grant-calls'], { queryParams: { created: state === 'PUBLISHED' ? 'published' : 'draft' } }),
       error: err => {
         this.saving.set(null);
-        this.error.set(err?.error?.errorMessage || err?.error?.message || 'Couldn’t save the call for proposals. Please try again.');
+        this.error.set(apiErrorMessage(err, 'Couldn’t save the call for proposals. Please try again in a few minutes.'));
       },
     });
   }
 
-  private toDto(state: 'DRAFT' | 'OPEN'): GrantCall {
+  private toDto(state: SaveState): GrantCall {
     const v = this.form.getRawValue();
     const paise = (rupees: number | null) => rupees == null ? undefined : Math.round(rupees * 100);
-    const day = (iso: string, endOfDay = false) => {
-      if (!iso) return 0;
-      const d = new Date(`${iso}T00:00:00`);
+    // Epoch ms in local time: the call opens at 00:00:00.000 on the start date and closes at 23:59:59.999 on the end date.
+    const day = (date: Date | null, endOfDay = false) => {
+      if (!date) return 0;
+      const d = startOfDay(date);
       if (endOfDay) d.setHours(23, 59, 59, 999);
       return d.getTime();
     };
@@ -194,7 +216,7 @@ export class GrantCallForm {
       maxAwardMinor: paise(v.maxAward),
       opensAt: day(v.opensAt),
       closesAt: day(v.closesAt, true),
-      postedAt: state === 'OPEN' ? Date.now() : undefined,
+      postedAt: state === 'PUBLISHED' ? Date.now() : undefined,
       reviewersRequired: v.reviewersRequired,
       isCsrFunded: v.isCsrFunded,
       scheduleViiCode: v.isCsrFunded ? v.scheduleViiCode || undefined : undefined,

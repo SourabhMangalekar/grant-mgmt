@@ -8,15 +8,21 @@
 }
 
 .brand {
-  display: flex; align-items: center; gap: var(--gm-space-3);
+  display: flex; align-items: center; gap: var(--gm-space-2);
   height: 48px; padding: 0 var(--gm-space-2); margin-bottom: var(--gm-space-4);
 }
 .logo {
+  flex: none;
   display: grid; place-items: center; width: 36px; height: 36px;
   color: var(--mat-sys-primary);
   mat-icon { font-size: 32px; width: 32px; height: 32px; }
 }
-.brand-name { font: var(--mat-sys-title-large); font-weight: 700; letter-spacing: -0.02em; color: var(--mat-sys-primary); }
+.brand-name {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: var(--mat-sys-title-medium); font-size: 18px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--mat-sys-primary);
+}
+.brand-suffix { font-weight: 500; color: var(--mat-sys-on-surface-variant); }
 
 mat-nav-list a { border-radius: var(--gm-radius-md); margin-bottom: var(--gm-space-1); }
 

@@ -1,17 +1,24 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { GrantApplication, GrantCall, GrantCallApi } from '../../../core/grant-call.api';
+import { Subscription } from 'rxjs';
+import { GrantCall, GrantCallApi, isPublished } from '../../../core/grant-call.api';
+import { ReceivedApplication, ReceivedApplicationsService, applicantName } from '../../../core/received-applications';
+import { Organisation } from '../../../core/application.api';
+import { StatusChip } from '../../../core/status-chip';
 import { REQUIRED_DOCS, SCHEDULE_VII } from '../grant-call-form/grant-call-form';
+import { APP_CONFIG } from '../../../core/config';
 
 const RESPONSE_FORMATS: Record<string, string> = {
   QUESTIONS: 'Answer questions online',
   PROPOSAL_UPLOAD: 'Upload a proposal document',
   QUESTIONS_AND_UPLOAD: 'Answer questions and upload a proposal',
 };
+/** How many of the newest applications the panel lists before "View all". */
+const RECENT_APPLICATIONS = 5;
 const BUDGET_FORMATS: Record<string, string> = { LINE_ITEMS: 'Line items', TEMPLATE_UPLOAD: 'Upload funder template' };
 const BUDGET_PERIODS: Record<string, string> = { YEARLY: 'Yearly', QUARTERLY: 'Quarterly', MONTHLY: 'Monthly' };
 
@@ -21,23 +28,45 @@ function parseJson<T>(raw: string | undefined, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
 
-/** Call for proposals details — GET /grant-calls/{id} plus its applications. */
+/** Call for proposals details — GET /grant-calls/{id}, plus (for the funder) the applications it received. */
 @Component({
   selector: 'gm-grant-call-detail',
-  imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, StatusChip],
   templateUrl: './grant-call-detail.html',
   styleUrl: './grant-call-detail.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GrantCallDetail {
   private readonly api = inject(GrantCallApi);
+  private readonly received = inject(ReceivedApplicationsService);
+  private loadSub?: Subscription;
+  private orgsSub?: Subscription;
 
   /** Bound from the :id route param. */
   readonly id = input.required<string>();
+  /** Bound from route data: granters manage the call; grantees read it and apply. */
+  readonly audience = input<'granter' | 'grantee'>('granter');
+  protected readonly isGrantee = computed(() => this.audience() === 'grantee');
+  /** Grantees may start a proposal while the call is live (any time in debug mode, for testing). */
+  protected readonly canApply = computed(() => this.phase() === 'live' || (APP_CONFIG.debugMode && isPublished(this.call()?.state)));
 
   protected readonly call = signal<GrantCall | null>(null);
-  protected readonly applications = signal<GrantApplication[]>([]);
-  protected readonly applicationsTotal = signal(0);
+  /** Applications received (submitted, never drafts), newest first. Funder only. */
+  protected readonly applications = signal<ReceivedApplication[]>([]);
+  protected readonly applicationsTotal = computed(() => this.applications().length);
+  /** Applicant organisations by id, filled in after the list (best effort). */
+  private readonly organisations = signal<ReadonlyMap<number, Organisation>>(new Map());
+  /** The newest few applications, with their applicant's name. */
+  protected readonly recentApplications = computed(() => {
+    const orgs = this.organisations();
+    return this.applications().slice(0, RECENT_APPLICATIONS)
+      .map(app => ({
+        app,
+        applicant: applicantName(orgs.get(app.organisationId), app.organisationId),
+        // When it was sent: submittedAt, else when the applicant gave consent (as on the applications list).
+        sentAt: app.submittedAt ?? app.consentGivenAt,
+      }));
+  });
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
 
@@ -54,7 +83,7 @@ export class GrantCallDetail {
   protected readonly responseFormat = computed(() => label(RESPONSE_FORMATS, this.call()?.responseFormat));
   protected readonly budgetFormat = computed(() => label(BUDGET_FORMATS, this.call()?.budgetFormat));
   protected readonly budgetPeriod = computed(() => label(BUDGET_PERIODS, this.call()?.budgetPeriod));
-  protected readonly isOpen = computed(() => this.call()?.state === 'OPEN');
+  protected readonly isOpen = computed(() => isPublished(this.call()?.state));
   /** Days until the call closes (negative once closed). */
   protected readonly daysLeft = computed(() => {
     const closes = this.call()?.closesAt;
@@ -64,7 +93,7 @@ export class GrantCallDetail {
   /** Where the call is in its window: before opening, accepting applications, or closed. */
   protected readonly phase = computed<'draft' | 'upcoming' | 'live' | 'closed'>(() => {
     const c = this.call();
-    if (!c || c.state !== 'OPEN') return 'draft';
+    if (!c || !isPublished(c.state)) return c?.state === 'CLOSED' ? 'closed' : 'draft';
     const now = Date.now();
     if (c.opensAt && now < c.opensAt) return 'upcoming';
     if (c.closesAt && now > c.closesAt) return 'closed';
@@ -106,23 +135,47 @@ export class GrantCallDetail {
   }
 
   constructor() {
-    effect(() => this.load(Number(this.id())));
+    effect(() => {
+      const id = Number(this.id());
+      untracked(() => this.load(id));
+    });
+    inject(DestroyRef).onDestroy(() => { this.loadSub?.unsubscribe(); this.orgsSub?.unsubscribe(); });
   }
 
   protected load(id: number) {
+    this.loadSub?.unsubscribe();
+    this.orgsSub?.unsubscribe();
     this.loading.set(true);
     this.error.set(null);
-    this.api.get(id).subscribe({
-      next: call => { this.call.set(call); this.loading.set(false); },
-      error: err => {
+    this.applications.set([]);
+    this.organisations.set(new Map());
+    const failed = (err: { status?: number }) => {
+      this.loading.set(false);
+      this.error.set(err?.status === 404 ? 'This call for proposals doesn’t exist or was removed.' : 'Couldn’t load this call for proposals.');
+    };
+    // Grantees only read the call; they never see who else applied.
+    if (this.audience() === 'grantee') {
+      this.loadSub = this.api.getOpen(id).subscribe({
+        next: call => { this.call.set(call); this.loading.set(false); },
+        error: failed,
+      });
+      return;
+    }
+    this.loadSub = this.received.forCall(id).subscribe({
+      next: ({ call, applications }) => {
+        this.call.set(call);
+        this.applications.set(applications);
         this.loading.set(false);
-        this.error.set(err?.status === 404 ? 'This call for proposals doesn’t exist or was removed.' : 'Couldn’t load this call for proposals.');
+        this.loadApplicants(applications.slice(0, RECENT_APPLICATIONS));
       },
+      error: failed,
     });
-    this.api.applications(id).subscribe({
-      next: page => { this.applications.set(page.elements ?? []); this.applicationsTotal.set(page.totalElements ?? page.elements?.length ?? 0); },
-      error: () => this.applications.set([]),
-    });
+  }
+
+  /** Names for the listed applicants; until (or unless) they arrive, rows show the organisation id. */
+  private loadApplicants(applications: ReceivedApplication[]) {
+    this.orgsSub = this.received.organisations(applications.map(a => a.organisationId))
+      .subscribe(orgs => this.organisations.set(orgs));
   }
 
   protected retry() { this.load(Number(this.id())); }

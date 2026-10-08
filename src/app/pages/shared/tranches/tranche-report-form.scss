@@ -1,0 +1,83 @@
+@use 'tranche-common' as tc;
+
+// Layout follows the component's own width (container queries), not the viewport: the pages place it in cards of
+// different widths.
+:host { display: block; width: 100%; min-width: 0; container-type: inline-size; }
+
+.report-form {
+  display: flex; flex-direction: column; gap: var(--gm-space-4);
+  mat-form-field { width: 100%; min-width: 0; }
+}
+.intro { margin: 0; line-height: 1.6; }
+
+// ── One row per planned activity ──
+.rows { display: flex; flex-direction: column; gap: var(--gm-space-3); }
+.row {
+  display: grid; align-items: start; gap: var(--gm-space-3);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'head' 'delivery' 'spent' 'remark';
+  padding: var(--gm-space-3); border-radius: var(--gm-radius-md);
+  background: var(--mat-sys-surface-container-low); border: 1px solid var(--mat-sys-outline-variant);
+}
+.item-head {
+  grid-area: head; display: flex; gap: var(--gm-space-3); align-items: flex-start; min-width: 0;
+  .no { @include tc.row-no; }
+}
+.item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.item-title { font: var(--mat-sys-title-small); overflow-wrap: anywhere; }
+.item-meta { font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); overflow-wrap: anywhere; }
+
+.delivery {
+  grid-area: delivery; display: flex; flex-direction: column; gap: var(--gm-space-1); min-width: 0;
+  mat-button-toggle-group { display: flex; width: 100%; max-width: 30rem; }
+  mat-button-toggle { flex: 1 1 auto; }
+  // The picked state takes its colour, alongside its text.
+  mat-button-toggle[data-state='DONE'] {
+    --mat-button-toggle-selected-state-background-color: var(--gm-status-approved-bg);
+    --mat-button-toggle-selected-state-text-color: var(--gm-status-approved);
+  }
+  mat-button-toggle[data-state='PARTLY_DONE'] {
+    --mat-button-toggle-selected-state-background-color: var(--gm-status-review-bg);
+    --mat-button-toggle-selected-state-text-color: var(--gm-status-review);
+  }
+  mat-button-toggle[data-state='NOT_DONE'] {
+    --mat-button-toggle-selected-state-background-color: var(--gm-status-rejected-bg);
+    --mat-button-toggle-selected-state-text-color: var(--gm-status-rejected);
+  }
+}
+.field-error { margin: 0; color: var(--mat-sys-error); font: var(--mat-sys-body-small); }
+.f-spent { grid-area: spent; }
+.f-remark { grid-area: remark; }
+
+// Amount and remark side by side once there's room.
+@container (min-width: 560px) {
+  .row {
+    grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+    grid-template-areas: 'head head' 'delivery delivery' 'spent remark';
+  }
+}
+// Activity on the left, how it went on the right.
+@container (min-width: 860px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 13rem) minmax(0, 1.2fr);
+    grid-template-areas: 'head delivery delivery' 'head spent remark';
+  }
+}
+
+.totals {
+  @include tc.totals;
+  .bar { @include tc.bar; flex: 1 0 100%; }
+}
+.no-items { margin: 0; }
+
+// ── Summary and files ──
+.files { display: flex; flex-direction: column; gap: var(--gm-space-2); }
+.files-note { margin: 0; font: var(--mat-sys-body-small); }
+.file-fields { display: grid; gap: var(--gm-space-2) var(--gm-space-3); grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 560px) {
+  .file-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.problem { @include tc.form-alert; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--gm-space-2); }
+.btn-spinner { display: inline-block; vertical-align: middle; margin-right: var(--gm-space-2); }

@@ -18,10 +18,12 @@ h3 { margin: var(--gm-space-3) 0 var(--gm-space-2); }
   font: var(--mat-sys-label-large);
 }
 
-.row-2, .row-3 { display: grid; gap: 0 var(--gm-space-3); grid-template-columns: 1fr; }
+.row-2, .row-3, .row-timeline { display: grid; gap: 0 var(--gm-space-3); grid-template-columns: minmax(0, 1fr); }
 @include bp.up(sm) {
-  .row-2 { grid-template-columns: 1fr 1fr; }
-  .row-3 { grid-template-columns: repeat(3, 1fr); }
+  .row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  // The date range needs room for "DD/MM/YYYY – DD/MM/YYYY" plus the calendar toggle.
+  .row-timeline { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 }
 
 .toggles { display: flex; flex-wrap: wrap; gap: var(--gm-space-5); margin: var(--gm-space-2) 0 var(--gm-space-4); }

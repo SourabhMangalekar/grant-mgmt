@@ -14,14 +14,16 @@
     <div class="auth-alert error" role="alert"><mat-icon>error</mat-icon> {{ e }}</div>
   }
 
-  <form [formGroup]="form" (ngSubmit)="save('OPEN')" novalidate>
+  <form [formGroup]="form" (ngSubmit)="save('PUBLISHED')" novalidate>
     <!-- 1. About the call -->
     <section class="surface-card section">
       <h2><span class="step">1</span> About the call</h2>
       <mat-form-field appearance="outline">
         <mat-label>Title</mat-label>
-        <input matInput formControlName="title" maxlength="250" placeholder="e.g. Foundational Literacy 2027">
+        <input matInput type="text" formControlName="title" maxlength="250" autocomplete="off"
+               placeholder="e.g. Foundational Literacy 2027">
         @if (form.controls.title.hasError('required')) { <mat-error>Give the call a title</mat-error> }
+        @else if (form.controls.title.hasError('maxlength')) { <mat-error>Keep the title under 250 characters</mat-error> }
       </mat-form-field>
       <div class="row-2">
         <mat-form-field appearance="outline">
@@ -33,16 +35,20 @@
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Call code (optional)</mat-label>
-          <input matInput formControlName="callCode" maxlength="60" placeholder="e.g. FLN-2027-01">
+          <input matInput type="text" formControlName="callCode" maxlength="60" autocomplete="off"
+                 autocapitalize="none" spellcheck="false" placeholder="e.g. FLN-2027-01">
           <mat-hint>Your own reference for this call.</mat-hint>
+          @if (form.controls.callCode.hasError('maxlength')) { <mat-error>Keep the code under 60 characters</mat-error> }
         </mat-form-field>
       </div>
       <mat-form-field appearance="outline">
         <mat-label>Description</mat-label>
-        <textarea matInput formControlName="description" rows="5" maxlength="2000"
+        <textarea matInput formControlName="description" maxlength="2000"
+                  cdkTextareaAutosize cdkAutosizeMinRows="5" cdkAutosizeMaxRows="16"
                   placeholder="What you want to fund, who should apply, and what a strong proposal looks like."></textarea>
         <mat-hint align="end">{{ form.controls.description.value.length }} / 2000</mat-hint>
         @if (form.controls.description.hasError('required')) { <mat-error>Describe the call</mat-error> }
+        @else if (form.controls.description.hasError('maxlength')) { <mat-error>Keep the description under 2000 characters</mat-error> }
       </mat-form-field>
     </section>
 
@@ -53,23 +59,26 @@
         <mat-form-field appearance="outline">
           <mat-label>Total envelope</mat-label>
           <span matTextPrefix>₹&nbsp;</span>
-          <input matInput type="number" formControlName="envelope" min="1">
+          <input matInput type="number" formControlName="envelope" min="1" step="1" inputmode="numeric" autocomplete="off">
           <mat-hint>Total money available across all awards.</mat-hint>
-          @if (form.controls.envelope.invalid) { <mat-error>Enter the total amount</mat-error> }
+          @if (form.controls.envelope.hasError('required')) { <mat-error>Enter the total amount</mat-error> }
+          @else if (form.controls.envelope.hasError('min')) { <mat-error>Enter at least ₹1</mat-error> }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Minimum award</mat-label>
           <span matTextPrefix>₹&nbsp;</span>
-          <input matInput type="number" formControlName="minAward" min="0">
+          <input matInput type="number" formControlName="minAward" min="0" step="1" inputmode="numeric" autocomplete="off">
+          @if (form.controls.minAward.hasError('min')) { <mat-error>Can’t be negative</mat-error> }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Maximum award</mat-label>
           <span matTextPrefix>₹&nbsp;</span>
-          <input matInput type="number" formControlName="maxAward" min="1">
+          <input matInput type="number" formControlName="maxAward" min="1" step="1" inputmode="numeric" autocomplete="off">
+          @if (form.controls.maxAward.hasError('min')) { <mat-error>Enter at least ₹1</mat-error> }
         </mat-form-field>
       </div>
-      @if (form.hasError('minAboveMax')) { <p class="form-error">The minimum award is more than the maximum.</p> }
-      @if (form.hasError('maxAboveEnvelope')) { <p class="form-error">The maximum award is more than the total envelope.</p> }
+      @if (form.hasError('minAboveMax')) { <p class="form-error" role="alert">The minimum award is more than the maximum.</p> }
+      @if (form.hasError('maxAboveEnvelope')) { <p class="form-error" role="alert">The maximum award is more than the total envelope.</p> }
       @if (form.controls.envelope.value) {
         <p class="muted">Envelope: {{ form.controls.envelope.value | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</p>
       }
@@ -93,24 +102,49 @@
     <!-- 3. Timeline & review -->
     <section class="surface-card section">
       <h2><span class="step">3</span> Timeline &amp; review</h2>
-      <div class="row-3">
+      @let opens = form.controls.opensAt;
+      @let closes = form.controls.closesAt;
+      <div class="row-timeline">
         <mat-form-field appearance="outline">
-          <mat-label>Opens on</mat-label>
-          <input matInput type="date" formControlName="opensAt">
-          @if (form.controls.opensAt.hasError('required')) { <mat-error>Choose an opening date</mat-error> }
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Closes on</mat-label>
-          <input matInput type="date" formControlName="closesAt">
-          @if (form.controls.closesAt.hasError('required')) { <mat-error>Choose a closing date</mat-error> }
+          <mat-label>Application window</mat-label>
+          <!-- Material only re-checks the other end of the range on programmatic changes, so re-run it on every
+               typed/picked date; otherwise a corrected range keeps a stale matStartDateInvalid / matEndDateInvalid. -->
+          <mat-date-range-input [rangePicker]="windowPicker" [min]="minDate" [max]="maxDate">
+            <input matStartDate formControlName="opensAt" placeholder="Opens" autocomplete="off"
+                   (dateInput)="form.controls.closesAt.updateValueAndValidity()">
+            <input matEndDate formControlName="closesAt" placeholder="Closes" autocomplete="off"
+                   (dateInput)="form.controls.opensAt.updateValueAndValidity()">
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="windowPicker" />
+          <mat-date-range-picker #windowPicker />
+          <mat-hint>DD/MM/YYYY – DD/MM/YYYY</mat-hint>
+          @if (opens.hasError('matDatepickerParse') || closes.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as DD/MM/YYYY</mat-error>
+          } @else if (opens.hasError('required') && closes.hasError('required')) {
+            <mat-error>Choose when applications open and close</mat-error>
+          } @else if (opens.hasError('required')) {
+            <mat-error>Choose the opening date</mat-error>
+          } @else if (closes.hasError('required')) {
+            <mat-error>Choose the closing date</mat-error>
+          } @else if (opens.hasError('matDatepickerMin') || closes.hasError('matDatepickerMin')) {
+            <mat-error>Dates can’t be in the past</mat-error>
+          } @else if (opens.hasError('matDatepickerMax') || closes.hasError('matDatepickerMax')) {
+            <mat-error>Choose dates within the next {{ maxYearsAhead }} years</mat-error>
+          } @else if (opens.hasError('matStartDateInvalid') || closes.hasError('matEndDateInvalid') || form.hasError('closesBeforeOpens')) {
+            <mat-error>The call must close on or after the day it opens</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Reviewers per application</mat-label>
-          <input matInput type="number" formControlName="reviewersRequired" min="1" max="10">
-          @if (form.controls.reviewersRequired.invalid) { <mat-error>Between 1 and 10</mat-error> }
+          <mat-select formControlName="reviewersRequired">
+            @for (n of reviewerCounts; track n) { <mat-option [value]="n">{{ n }}</mat-option> }
+          </mat-select>
+          @if (form.controls.reviewersRequired.invalid) { <mat-error>Choose between 1 and 10 reviewers</mat-error> }
         </mat-form-field>
       </div>
-      @if (form.hasError('closesBeforeOpens')) { <p class="form-error">The call closes before it opens.</p> }
+      @if (form.hasError('closesBeforeOpens') && !closes.hasError('matEndDateInvalid')) {
+        <p class="form-error" role="alert">The call closes before it opens.</p>
+      }
     </section>
 
     <!-- 4. What applicants submit -->
@@ -132,7 +166,7 @@
         <div class="question">
           <mat-form-field appearance="outline">
             <mat-label>Question {{ i + 1 }}</mat-label>
-            <input matInput [formControl]="q">
+            <textarea matInput [formControl]="q" cdkTextareaAutosize cdkAutosizeMinRows="1" cdkAutosizeMaxRows="4"></textarea>
             @if (q.hasError('required')) { <mat-error>Write the question or remove it</mat-error> }
           </mat-form-field>
           <button mat-icon-button type="button" (click)="removeQuestion(i)" [attr.aria-label]="'Remove question ' + (i + 1)">
@@ -160,8 +194,8 @@
         </mat-form-field>
       </div>
 
-      <h3 class="label-mono">Required documents</h3>
-      <div class="docs">
+      <h3 class="label-mono" id="docs-heading">Required documents</h3>
+      <div class="docs" role="group" aria-labelledby="docs-heading">
         @for (d of docs; track d.code) {
           <mat-checkbox [checked]="hasDoc(d.code)" (change)="toggleDoc(d.code, $event.checked)">{{ d.label }}</mat-checkbox>
         }
@@ -172,10 +206,10 @@
       <a mat-button routerLink="/grant-calls" [class.disabled]="saving()">Cancel</a>
       <span class="spacer"></span>
       <button mat-stroked-button type="button" (click)="save('DRAFT')" [disabled]="saving()">
-        @if (saving() === 'DRAFT') { <mat-spinner diameter="18" /> } @else { Save draft }
+        @if (saving() === 'DRAFT') { <mat-spinner diameter="18" aria-label="Saving draft" /> } @else { Save draft }
       </button>
       <button mat-flat-button type="submit" [disabled]="saving()">
-        @if (saving() === 'OPEN') { <mat-spinner diameter="18" /> } @else { <ng-container><mat-icon>campaign</mat-icon> Publish</ng-container> }
+        @if (saving() === 'PUBLISHED') { <mat-spinner diameter="18" aria-label="Publishing" /> } @else { <ng-container><mat-icon>campaign</mat-icon> Publish</ng-container> }
       </button>
     </div>
   </form>

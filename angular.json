@@ -83,6 +83,17 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "mock": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.mock.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -98,6 +109,9 @@
             },
             "development": {
               "buildTarget": "grant-management:build:development"
+            },
+            "mock": {
+              "buildTarget": "grant-management:build:mock"
             }
           },
           "defaultConfiguration": "development"

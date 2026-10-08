@@ -10,7 +10,7 @@ import { ThemeService } from '../../core/theme.service';
   template: `
     <div class="auth">
       <aside class="hero" aria-hidden="true">
-        <div class="brand"><mat-icon>bar_chart</mat-icon><span>GrantHub</span></div>
+        <div class="brand"><mat-icon>bar_chart</mat-icon><span>Commons<span class="brand-suffix">.Grants</span></span></div>
         <div class="pitch">
           <span class="eyebrow">For funders &amp; nonprofits</span>
           <h2>Run every grant from call to closure.</h2>
@@ -27,7 +27,7 @@ import { ThemeService } from '../../core/theme.service';
 
       <main class="panel">
         <div class="panel-top">
-          <div class="brand mobile-brand"><mat-icon>bar_chart</mat-icon><span>GrantHub</span></div>
+          <div class="brand mobile-brand"><mat-icon>bar_chart</mat-icon><span>Commons<span class="brand-suffix">.Grants</span></span></div>
           <button mat-icon-button (click)="theme.toggle()"
                   [attr.aria-label]="theme.dark() ? 'Switch to light theme' : 'Switch to dark theme'">
             <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>

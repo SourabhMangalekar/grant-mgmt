@@ -1,0 +1,55 @@
+@use 'tranche-common' as tc;
+
+// Layout follows the component's own width (container queries): a stacked list when narrow, a table when wide.
+:host { display: block; width: 100%; min-width: 0; container-type: inline-size; }
+
+.plan-view { display: flex; flex-direction: column; gap: var(--gm-space-4); }
+.meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gm-space-2) var(--gm-space-3);
+  color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-small);
+}
+.callout { @include tc.callout; }
+.empty { margin: 0; }
+
+// ── Activities: stacked (narrow) ──
+.items { display: flex; flex-direction: column; }
+.head { @include tc.sr-only; }
+.item {
+  display: grid; gap: var(--gm-space-1) var(--gm-space-3); align-items: start;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-areas: 'no act act' 'no out out' 'no date budget';
+  padding: var(--gm-space-3) 0;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  &:last-child { border-bottom: 1px solid var(--mat-sys-outline-variant); }
+}
+.c-no { grid-area: no; }
+.c-activity { grid-area: act; font: var(--mat-sys-title-small); overflow-wrap: anywhere; }
+.c-output { grid-area: out; overflow-wrap: anywhere; line-height: 1.5; }
+.c-date { grid-area: date; }
+.c-budget { grid-area: budget; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.no { @include tc.row-no; }
+.cell-label {
+  display: block; margin-bottom: 2px;
+  font-family: var(--gm-font-mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// ── Activities: table (wide) ──
+@container (min-width: 640px) {
+  .head, .item {
+    display: grid; gap: var(--gm-space-3); align-items: center;
+    grid-template-columns: 28px minmax(0, 2fr) minmax(0, 1.5fr) 7.5rem 8.5rem;
+    grid-template-areas: 'no act out date budget';
+  }
+  .head {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal;
+    padding: 0 0 var(--gm-space-2);
+    font-family: var(--gm-font-mono); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--mat-sys-on-surface-variant);
+    .c-activity, .c-output, .c-budget { font: inherit; }
+  }
+  .item { padding: var(--gm-space-2) 0; }
+  .cell-label { display: none; }
+}
+
+.totals { @include tc.totals; }

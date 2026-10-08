@@ -3,29 +3,78 @@
 .filters {
   display: flex; flex-wrap: wrap; gap: var(--gm-space-3);
   margin-bottom: var(--gm-space-4);
+  mat-form-field { min-width: 0; }
   .search { flex: 1 1 280px; }
-  .status { flex: 0 1 200px; }
-  @include bp.down(sm) { .status { flex: 1 1 100%; } }
+  .status { flex: 0 1 180px; }
+  .call { flex: 0 1 280px; }
+  // Phones: search on its own row, the two selects share the next one.
+  @include bp.down(sm) { .status, .call { flex: 1 1 140px; } }
+}
+.result-count {
+  margin: calc(-1 * var(--gm-space-2)) 0 var(--gm-space-3);
+  font: var(--mat-sys-body-small);
+  &:empty { margin: 0; }
 }
 
+// ── Table ───────────────────────────────────────────────────────────────
 table { width: 100%; background: transparent; }
-th.mat-mdc-header-cell { font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mat-sys-on-surface-variant); }
-tr.mat-mdc-row:hover { background: var(--mat-sys-surface-container); }
-.num { text-align: right; white-space: nowrap; font-family: var(--gm-font-mono); }
-.title { font: var(--mat-sys-title-small); }
+th.mat-mdc-header-cell {
+  font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant); white-space: nowrap;
+}
+td.mat-mdc-cell { padding-block: var(--gm-space-3); }
+tr.clickable {
+  cursor: pointer;
+  &:hover, &:focus-within { background: var(--mat-sys-surface-container); }
+}
+td.mat-column-reference {
+  white-space: nowrap; font-family: var(--gm-font-mono); font-size: 12px; color: var(--mat-sys-on-surface-variant);
+}
+.mat-column-proposal { min-width: 220px; }
+.mat-column-call { min-width: 160px; max-width: 280px; }
+.mat-column-submitted, .mat-column-status { white-space: nowrap; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.title-link, .call-link {
+  text-decoration: none; border-radius: 4px;
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+}
+.title-link { font: var(--mat-sys-title-small); color: var(--mat-sys-on-surface); &:hover { color: var(--mat-sys-primary); } }
+.call-link { color: var(--mat-sys-primary); }
 .small { font: var(--mat-sys-body-small); }
 .empty { padding: var(--gm-space-6); text-align: center; color: var(--mat-sys-on-surface-variant); }
 
-.cards { display: grid; gap: var(--gm-space-3); }
-.grant-card {
-  display: flex; flex-direction: column; gap: var(--gm-space-1);
-  padding: var(--gm-space-4);
-  .row { display: flex; align-items: center; justify-content: space-between; gap: var(--gm-space-2); }
-  .row:last-child { margin-top: var(--gm-space-2); }
+// ── Cards ───────────────────────────────────────────────────────────────
+.cards {
+  list-style: none; margin: 0; padding: 0;
+  gap: var(--gm-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  > li { min-width: 0; }
+  > .empty { grid-column: 1 / -1; }
+}
+.app-card {
+  display: flex; flex-direction: column; gap: var(--gm-space-1); height: 100%;
+  padding: var(--gm-card-pad);
+  color: inherit; text-decoration: none;
+  transition: border-color .15s;
+  &:hover { border-color: var(--mat-sys-primary); }
+  &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+
+  .top, .bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--gm-space-2); }
+  .bottom { margin-top: auto; padding-top: var(--gm-space-3); flex-wrap: wrap; }
+  .ref { min-width: 0; overflow-wrap: anywhere; }
+  .title { margin-top: var(--gm-space-1); font: var(--mat-sys-title-medium); overflow-wrap: anywhere; }
+  .call {
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+    mat-icon { flex: none; font-size: 16px; width: 16px; height: 16px; }
+  }
+  .amount { font-variant-numeric: tabular-nums; font-weight: 600; }
 }
 
+// Cards until the table has room for all six columns (the docked side nav takes 248px from md up).
 .mobile-only { display: none; }
-@include bp.down(sm) {
+@include bp.down(lg) {
   .desktop-only { display: none; }
   .mobile-only { display: grid; }
 }

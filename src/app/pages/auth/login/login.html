@@ -17,8 +17,8 @@
     <mat-form-field appearance="outline">
       <mat-label>Email, mobile or username</mat-label>
       <mat-icon matPrefix>person</mat-icon>
-      <input matInput formControlName="userLogin" autocomplete="username" autocapitalize="none" spellcheck="false"
-             [readonly]="step() === 2">
+      <input matInput formControlName="userLogin" inputmode="email" autocomplete="username" autocapitalize="none"
+             spellcheck="false" [readonly]="step() === 2">
       @if (step() === 2) {
         <button mat-icon-button matSuffix type="button" (click)="back()" aria-label="Change email or username">
           <mat-icon>edit</mat-icon>
@@ -29,7 +29,7 @@
 
     @if (step() === 1) {
       <button mat-flat-button class="submit" type="submit" [disabled]="loading()">
-        @if (loading()) { <mat-spinner diameter="20" /> } @else { Next }
+        @if (loading()) { <mat-spinner diameter="20" aria-label="Finding your organisations" /> } @else { Next }
       </button>
     } @else {
       @if (tenants().length) {
@@ -47,7 +47,7 @@
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grow">
           <mat-label>Organisation ID</mat-label>
           <mat-icon matPrefix>apartment</mat-icon>
-          <input matInput formControlName="tenantLogin" autocomplete="organization" autocapitalize="none" spellcheck="false">
+          <input matInput formControlName="tenantLogin" autocomplete="off" autocapitalize="none" spellcheck="false">
           <mat-hint>We couldn’t find an organisation for this login — enter its ID.</mat-hint>
           @if (form.controls.tenantLogin.hasError('required')) { <mat-error>Enter your organisation ID</mat-error> }
         </mat-form-field>
@@ -56,9 +56,10 @@
       <mat-form-field appearance="outline">
         <mat-label>Password</mat-label>
         <mat-icon matPrefix>lock</mat-icon>
-        <input matInput formControlName="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password">
+        <input matInput formControlName="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password"
+               autocapitalize="none" spellcheck="false">
         <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())"
-                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+                aria-label="Show password" [attr.aria-pressed]="showPassword()">
           <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>
         @if (form.controls.password.hasError('required')) { <mat-error>Enter your password</mat-error> }
@@ -70,7 +71,7 @@
       </div>
 
       <button mat-flat-button class="submit" type="submit" [disabled]="loading()">
-        @if (loading()) { <mat-spinner diameter="20" /> } @else { Sign in }
+        @if (loading()) { <mat-spinner diameter="20" aria-label="Signing in" /> } @else { Sign in }
       </button>
     }
   </form>
@@ -82,5 +83,5 @@
     </div>
   }
 
-  <p class="auth-foot">New to GrantHub? <a class="auth-link" routerLink="/auth/signup">Create an account</a></p>
+  <p class="auth-foot">New to Commons.Grants? <a class="auth-link" routerLink="/auth/signup">Create an account</a></p>
 </section>

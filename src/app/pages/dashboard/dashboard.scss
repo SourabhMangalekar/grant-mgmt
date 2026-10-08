@@ -35,14 +35,23 @@
   h2 { font: var(--mat-sys-title-medium); margin: 0 0 var(--gm-space-3); }
   ul { list-style: none; margin: 0; padding: 0; }
   li {
-    display: flex; align-items: center; justify-content: space-between; gap: var(--gm-space-3);
     padding: var(--gm-space-3) 0;
     border-top: 1px solid var(--mat-sys-outline-variant);
     &:first-child { border-top: 0; }
   }
+  .app {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--gm-space-3);
+    min-height: 44px; border-radius: var(--gm-radius-md);
+    color: inherit; text-decoration: none;
+    &:hover .title { color: var(--mat-sys-primary); text-decoration: underline; }
+    &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+  }
   .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .title { font: var(--mat-sys-title-small); }
+  .title { font: var(--mat-sys-title-small); overflow-wrap: anywhere; }
+  .muted { overflow-wrap: anywhere; }
 
 }
 
 .header-actions { display: flex; flex-wrap: wrap; gap: var(--gm-space-2); }
+
+a.link { color: inherit; text-decoration: none; &:hover { color: var(--mat-sys-primary); text-decoration: underline; } }
