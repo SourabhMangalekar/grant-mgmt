@@ -88,3 +88,9 @@ body {
 }
 .page-header h1 { font-size: 36px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
 
+
+// An icon placed inside a button's label (e.g. from an @if branch, which Material can't project into its icon slot)
+// gets the same size and alignment as a projected button icon.
+.mdc-button__label > mat-icon {
+  font-size: 18px; width: 18px; height: 18px; vertical-align: middle; margin: -2px 8px 0 0;
+}

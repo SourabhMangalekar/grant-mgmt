@@ -18,7 +18,8 @@ h3 { margin: var(--gm-space-3) 0 var(--gm-space-2); }
   font: var(--mat-sys-label-large);
 }
 
-.row-2, .row-3, .row-timeline { display: grid; gap: 0 var(--gm-space-3); grid-template-columns: minmax(0, 1fr); }
+// Row gap leaves room for a field's hint or error when the fields stack on narrow screens.
+.row-2, .row-3, .row-timeline { display: grid; gap: var(--gm-space-2) var(--gm-space-3); grid-template-columns: minmax(0, 1fr); }
 @include bp.up(sm) {
   .row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -26,7 +27,8 @@ h3 { margin: var(--gm-space-3) 0 var(--gm-space-2); }
   .row-timeline { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
 }
 
-.toggles { display: flex; flex-wrap: wrap; gap: var(--gm-space-5); margin: var(--gm-space-2) 0 var(--gm-space-4); }
+.envelope { margin: var(--gm-space-1) 0 0; }
+.toggles { display: flex; flex-wrap: wrap; gap: var(--gm-space-3) var(--gm-space-5); margin: var(--gm-space-3) 0 var(--gm-space-2); }
 .question { display: flex; align-items: flex-start; gap: var(--gm-space-2); button { margin-top: var(--gm-space-2); } }
 .budget { margin-top: var(--gm-space-5); }
 .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 var(--gm-space-3); }

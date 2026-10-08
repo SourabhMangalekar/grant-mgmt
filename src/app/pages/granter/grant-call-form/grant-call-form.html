@@ -60,7 +60,7 @@
           <mat-label>Total envelope</mat-label>
           <span matTextPrefix>₹&nbsp;</span>
           <input matInput type="number" formControlName="envelope" min="1" step="1" inputmode="numeric" autocomplete="off">
-          <mat-hint>Total money available across all awards.</mat-hint>
+          <mat-hint>Across all awards</mat-hint>
           @if (form.controls.envelope.hasError('required')) { <mat-error>Enter the total amount</mat-error> }
           @else if (form.controls.envelope.hasError('min')) { <mat-error>Enter at least ₹1</mat-error> }
         </mat-form-field>
@@ -80,7 +80,7 @@
       @if (form.hasError('minAboveMax')) { <p class="form-error" role="alert">The minimum award is more than the maximum.</p> }
       @if (form.hasError('maxAboveEnvelope')) { <p class="form-error" role="alert">The maximum award is more than the total envelope.</p> }
       @if (form.controls.envelope.value) {
-        <p class="muted">Envelope: {{ form.controls.envelope.value | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</p>
+        <p class="muted envelope">Envelope: {{ form.controls.envelope.value | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</p>
       }
 
       <div class="toggles">
