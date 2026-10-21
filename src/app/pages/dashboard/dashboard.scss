@@ -1,15 +1,22 @@
 @use 'breakpoints' as bp;
 
+// The KPI grid sizes off the page's own width, which the open side-nav eats into, not the viewport's.
+:host { display: block; container-type: inline-size; }
+
+// 1 → 2 → 4 columns that always fill the row: never an empty track at the end, never a 3 + 1 orphan.
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gm-section-gap);
   margin-bottom: var(--gm-section-gap);
 }
+@container (min-width: 600px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 1150px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 .kpi {
+  container-type: inline-size;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas: 'icon label' 'icon value';
   column-gap: var(--gm-space-4);
   align-items: center;
@@ -22,7 +29,11 @@
   background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container);
 }
 .kpi-label { grid-area: label; font-family: var(--gm-font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mat-sys-on-surface-variant); }
-.kpi-value { grid-area: value; font-family: var(--gm-font-mono); font-size: 26px; line-height: 1.3; }
+// Scales with the tile so a crore-sized amount still fits; the ellipsis is only a last resort.
+.kpi-value {
+  grid-area: value; font-family: var(--gm-font-mono); font-size: clamp(18px, 9cqi, 26px); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 .two-col {
   display: grid; gap: var(--gm-section-gap);

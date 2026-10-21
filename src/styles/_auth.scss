@@ -28,6 +28,7 @@
   &.success { color: var(--gm-status-approved); background: var(--gm-status-approved-bg); }
 }
 .auth-foot { margin-top: var(--gm-space-5); text-align: center; color: var(--mat-sys-on-surface-variant); }
+.auth-foot.browse { margin-top: var(--gm-space-2); }
 .auth-link {
   color: var(--mat-sys-primary); font-weight: 600; text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-weight: 600;
   &:hover { text-decoration: underline; }

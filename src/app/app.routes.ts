@@ -16,6 +16,8 @@ export const routes: Routes = [
       { path: 'forgot-password', title: 'Reset password · Commons.Grants', loadComponent: () => import('./pages/auth/forgot-password/forgot-password').then(m => m.ForgotPassword) },
     ],
   },
+  // Public grant marketplace: anyone can browse, no sign-in (signed-in grantees also get easy apply).
+  { path: 'marketplace', title: 'Grant marketplace · Commons.Grants', loadComponent: () => import('./pages/marketplace/marketplace').then(m => m.Marketplace) },
   {
     path: 'pending',
     canActivate: [authGuard],

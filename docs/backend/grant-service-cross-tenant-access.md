@@ -33,7 +33,7 @@ In Commons.Grants, **funders (granters) and applicants (grantees) are different 
 Observed in the app: the funder's call **#44** shows as open to the funder (closes 20 Nov 2026). A grantee's **Open calls** page shows **0 calls**, and the browser does make the request below.
 
 ```bash
-BASE=https://c520-49-200-149-202.ngrok-free.app/commons-grant-service   # current ngrok tunnel
+BASE=https://5df9-49-200-149-202.ngrok-free.app/commons-grant-service   # current ngrok tunnel
 
 # 1. As the funder: the call is listed
 curl -s "$BASE/api/v1/grant-calls?page=0&size=100" -H "X-SESSIONID: <funder session>" -H "ngrok-skip-browser-warning: true"

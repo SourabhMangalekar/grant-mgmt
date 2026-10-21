@@ -12,6 +12,7 @@ export const NAV: Record<Affiliation, NavItem[]> = {
   grantee: [
     { path: '/home', label: 'Home', icon: 'home' },
     { path: '/calls', label: 'Open calls', icon: 'campaign' },
+    { path: '/marketplace', label: 'Marketplace', icon: 'storefront' },
     { path: '/applications', label: 'My applications', icon: 'assignment' },
   ],
 };

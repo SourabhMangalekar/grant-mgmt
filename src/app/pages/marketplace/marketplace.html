@@ -1,0 +1,217 @@
+<div class="market">
+  <!-- Public top bar: no side nav, works signed out -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" routerLink="/marketplace" aria-label="Commons.Grants grant marketplace">
+        <mat-icon>bar_chart</mat-icon><span>Commons<span class="brand-suffix">.Grants</span></span>
+      </a>
+      <span class="spacer"></span>
+      <button mat-icon-button type="button" (click)="theme.toggle()"
+              [attr.aria-label]="theme.dark() ? 'Switch to light theme' : 'Switch to dark theme'">
+        <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+      @if (signedIn()) {
+        <a mat-flat-button routerLink="/"><mat-icon>space_dashboard</mat-icon> Go to dashboard</a>
+      } @else {
+        <a mat-button routerLink="/auth/login" [queryParams]="{ returnUrl: '/marketplace' }" class="signin">Sign in</a>
+        <a mat-flat-button routerLink="/auth/signup">Create account</a>
+      }
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- Hero + search -->
+    <section class="hero" aria-labelledby="market-title">
+      <span class="eyebrow">Grant marketplace</span>
+      <h1 id="market-title">Find funding for your work</h1>
+      <p class="lede">
+        Open grants from funders on Commons.Grants and from across the web, in one place.
+        Apply to ours in a few minutes; for the rest, we take you to the funder’s own page.
+      </p>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search">
+        <mat-icon matPrefix>search</mat-icon>
+        <mat-label>Search grants</mat-label>
+        <input matInput #searchBox type="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
+               placeholder="Theme, funder, keyword…" [value]="search()" (input)="search.set(searchBox.value)">
+        @if (search()) {
+          <button mat-icon-button matSuffix type="button" aria-label="Clear search" (click)="search.set(''); searchBox.focus()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+      @if (totals(); as t) {
+        <ul class="stats" aria-label="Grants available">
+          <li><strong>{{ t.live }}</strong> live grants</li>
+          <li><mat-icon>bolt</mat-icon><strong>{{ t.here }}</strong> with easy apply</li>
+          <li><mat-icon>public</mat-icon><strong>{{ t.elsewhere }}</strong> from other sources</li>
+        </ul>
+      }
+    </section>
+
+    <!-- Filters: one bar, scope and dropdowns on a shared line, themes beneath -->
+    <section class="surface-card filter-bar" aria-label="Filter grants">
+      <div class="filter-row">
+        <mat-button-toggle-group class="scope" [value]="scope()" (change)="setScope($event.value)" aria-label="Where to apply"
+                                 hideSingleSelectionIndicator>
+          <mat-button-toggle value="ALL">All</mat-button-toggle>
+          <mat-button-toggle value="HERE"><mat-icon>bolt</mat-icon> Easy apply</mat-button-toggle>
+          <mat-button-toggle value="EXTERNAL"><mat-icon>public</mat-icon> On funders’ sites</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <div class="selects">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>State</mat-label>
+            <mat-select [value]="stateFilter()" (valueChange)="stateFilter.set($event)">
+              <mat-option value="">Anywhere in India</mat-option>
+              @for (s of states; track s.code) { <mat-option [value]="s.code">{{ s.name }}</mat-option> }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Sort by</mat-label>
+            <mat-select [value]="sort()" (valueChange)="setSort($event)">
+              <mat-option value="CLOSING">Closing soonest</mat-option>
+              <mat-option value="SIZE">Largest grants</mat-option>
+              @if (canMatch()) { <mat-option value="MATCH">Best match for you</mat-option> }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="theme-row">
+        <span class="label-mono theme-label" id="theme-label">Themes</span>
+        <!-- Single choice; picking the selected theme again clears it. -->
+        <mat-chip-listbox class="themes" aria-labelledby="theme-label" [value]="themeFilter()"
+                          (change)="themeFilter.set($event.value ?? '')" [hideSingleSelectionIndicator]="true">
+          @for (t of themes(); track t) { <mat-chip-option [value]="t">{{ t }}</mat-chip-option> }
+        </mat-chip-listbox>
+      </div>
+    </section>
+
+    <!-- Result count: announced as filters change -->
+    <div class="results-head">
+      <p role="status">
+        @if (loading()) { Looking for grants… }
+        @else if (totals(); as t) { Showing {{ items().length }} of {{ t.total }} grant{{ t.total === 1 ? '' : 's' }} }
+      </p>
+      @if (filtering()) {
+        <button mat-button type="button" (click)="clearFilters()"><mat-icon>filter_alt_off</mat-icon> Clear filters</button>
+      }
+    </div>
+
+    @if (loading()) {
+      <div class="grid" aria-hidden="true">
+        @for (s of skeletons; track s) {
+          <div class="surface-card grant skeleton">
+            <span class="sk sk-badge"></span><span class="sk sk-title"></span><span class="sk sk-line"></span>
+            <span class="sk sk-line short"></span><span class="sk sk-amount"></span>
+          </div>
+        }
+      </div>
+    } @else if (error()) {
+      <div class="surface-card empty-state">
+        <span class="empty-icon error"><mat-icon>cloud_off</mat-icon></span>
+        <h2>Couldn’t load grants</h2>
+        <p>The grant service didn’t respond. Check your connection and try again.</p>
+        <div class="empty-actions"><button mat-flat-button type="button" (click)="retry()"><mat-icon>refresh</mat-icon> Try again</button></div>
+      </div>
+    } @else {
+      <ul class="grid" role="list">
+        @for (g of items(); track key(g) + $index) {
+          @let here = isHere(g);
+          @let dl = daysLeft(g);
+          @let el = eligibility(g);
+          @let tags = stateTags(g);
+          @let action = cta(g);
+          <li class="surface-card grant" [class.external]="!here">
+            <div class="badges">
+              @if (here) { <span class="badge easy"><mat-icon>bolt</mat-icon> Easy apply</span> }
+              @else { <span class="badge ext"><mat-icon>public</mat-icon> {{ g.sourceName || 'Other website' }}</span> }
+              @if (g.isNew) { <span class="badge new">New</span> }
+              @if (g.matchScore != null) { <span class="badge match">{{ g.matchScore }}% match</span> }
+              <span class="spacer"></span>
+              @if (dl) { <span class="deadline" [class.soon]="g.closingSoon"><mat-icon>schedule</mat-icon>{{ dl }}</span> }
+            </div>
+
+            <h2 class="title">
+              <button type="button" class="title-btn" (click)="open(g)">{{ g.title }}</button>
+            </h2>
+            <p class="funder">{{ funder(g) }}@if (g.theme) { <span aria-hidden="true"> · </span>{{ g.theme }} }</p>
+            @if (g.summary) { <p class="summary">{{ g.summary }}</p> }
+
+            <p class="amount">{{ amount(g) ?? 'Amount not stated' }}</p>
+
+            @if (tags.length || el.tags.length) {
+              <ul class="chips" aria-label="Where and who">
+                @for (s of tags.slice(0, 2); track s) { <li class="chip place"><mat-icon>place</mat-icon>{{ s }}</li> }
+                @if (tags.length > 2) { <li class="chip place">+{{ tags.length - 2 }} more</li> }
+                @for (e of el.tags.slice(0, 2); track e) { <li class="chip">{{ e }}</li> }
+                @if (el.tags.length > 2) { <li class="chip">+{{ el.tags.length - 2 }} more</li> }
+              </ul>
+            }
+
+            <div class="footer">
+              <span class="closes">
+                @if (g.closesAt) { Closes {{ g.closesAt | date: 'd MMM y' }} } @else { No deadline stated }
+              </span>
+              <span class="spacer"></span>
+              <button mat-button type="button" (click)="open(g)" [attr.aria-label]="'Details of ' + g.title">Details</button>
+              @if (action.kind === 'external') {
+                <a mat-flat-button [href]="action.href" target="_blank" rel="noopener noreferrer"
+                   [attr.aria-label]="'Apply on the funder’s site for ' + g.title + ' (opens in a new tab)'">
+                  Apply on funder’s site <mat-icon iconPositionEnd>open_in_new</mat-icon>
+                </a>
+              } @else if (action.kind === 'sign-in') {
+                <a mat-flat-button routerLink="/auth/login" [queryParams]="{ returnUrl: action.returnUrl }"
+                   [attr.aria-label]="'Sign in to apply for ' + g.title">
+                  <mat-icon>bolt</mat-icon> Sign in to apply
+                </a>
+              } @else if (action.kind === 'apply') {
+                <a mat-flat-button [routerLink]="action.link" [attr.aria-label]="'Easy apply for ' + g.title">
+                  <mat-icon>bolt</mat-icon> Easy apply
+                </a>
+              } @else if (action.kind === 'open-calls') {
+                <a mat-flat-button routerLink="/calls" [attr.aria-label]="'Apply for ' + g.title + ' from Open calls'">
+                  <mat-icon>bolt</mat-icon> Apply
+                </a>
+              } @else if (action.kind === 'funder') {
+                <span class="funder-note">Grantees apply here</span>
+              }
+            </div>
+          </li>
+        } @empty {
+          <li class="surface-card empty-state wide">
+            <span class="empty-icon"><mat-icon>travel_explore</mat-icon></span>
+            <h2>{{ filtering() ? 'No grants match your filters' : 'No open grants right now' }}</h2>
+            <p>{{ filtering() ? 'Try another theme or state, or clear the filters.' : 'New calls appear here as soon as funders publish them. Check back soon.' }}</p>
+            @if (filtering()) {
+              <div class="empty-actions"><button mat-stroked-button type="button" (click)="clearFilters()"><mat-icon>filter_alt_off</mat-icon> Clear filters</button></div>
+            }
+          </li>
+        }
+      </ul>
+
+      @if (hasMore()) {
+        <div class="more">
+          <button mat-stroked-button type="button" (click)="loadMore()" [disabled]="loadingMore()" disabledInteractive>
+            @if (loadingMore()) { <mat-spinner class="btn-spinner" diameter="18" aria-hidden="true" /> }
+            @else { <mat-icon>expand_more</mat-icon> }
+            {{ loadingMore() ? 'Loading…' : 'Show more grants' }}
+          </button>
+        </div>
+      }
+    }
+
+    @if (sources().length) {
+      <p class="sources">
+        <mat-icon>info</mat-icon>
+        <span>
+          Grants from other websites are gathered from
+          @for (s of sources(); track s.name; let last = $last; let i = $index) {
+            @if (s.url) { <a [href]="s.url" target="_blank" rel="noopener noreferrer">{{ s.name }}</a> } @else { {{ s.name }} }{{ last ? '.' : (i === sources().length - 2 ? ' and ' : ', ') }}
+          }
+          Always check the details on the funder’s page before applying.
+        </span>
+      </p>
+    }
+  </main>
+</div>

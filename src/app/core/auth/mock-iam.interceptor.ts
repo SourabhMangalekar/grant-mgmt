@@ -240,6 +240,34 @@ const notFound = (errorMessage = 'Not found') =>
 const sqlNull = (column: string) => throwError(() => new HttpErrorResponse({ status: 500, error: {
   errorCode: 'ERR_PLATFORM_GEN_UNKNOWN', errorMessage: `SQLIntegrityConstraintViolationException: Column '${column}' cannot be null` } })).pipe(delay(300));
 
+/** Grants gathered from other websites, as the real marketplace returns them (fictional funders); `daysAhead` sets the deadline. */
+const EXTERNAL_GRANTS = [
+  { title: 'Menstrual Health in Government Schools', theme: 'Health', daysAhead: 11, isNew: true, externalGrantId: 4,
+    funderName: 'Aarogya Collective (fictional)', summary: 'Menstrual health education and facilities in government secondary schools.',
+    grantMinMinor: 30000000, grantMaxMinor: 600000000, states: ['KA'], eligibilityText: 'Any registered nonprofit with two years of audited accounts.',
+    applyUrl: 'https://digest.example.org/apply/ND-556', sourceUrl: 'https://digest.example.org/ND-556', sourceName: 'Sector newsletter (fictional)' },
+  { title: 'Anganwadi Nutrition Challenge', theme: 'Child nutrition', daysAhead: 19, isNew: true, externalGrantId: 2,
+    funderName: 'Sampoorna Trust (fictional)', summary: 'Growth monitoring and supplementary nutrition in rural anganwadi centres.',
+    grantMinMinor: 50000000, grantMaxMinor: 1000000000, states: ['ALL'],
+    eligibilityText: '12A required. FCRA not required. Preference for organisations already working with ICDS.',
+    applyUrl: 'https://csr.example.org/apply/BCP-1077', sourceUrl: 'https://csr.example.org/listing/BCP-1077', sourceName: 'Bharat CSR Portal' },
+  { title: 'Early Grade Reading Fund 2027', theme: 'Education', daysAhead: 44, isNew: true, externalGrantId: 1,
+    funderName: 'Vidya Foundation (fictional)', summary: 'Supports reading programmes in government primary schools across southern states.',
+    grantMinMinor: 100000000, grantMaxMinor: 2500000000, states: ['KA', 'TN', 'AP'],
+    eligibilityText: 'Registered trust or society with 12A and 80G, three years of audited accounts.',
+    applyUrl: 'https://csr.example.org/apply/BCP-1041', sourceUrl: 'https://csr.example.org/listing/BCP-1041', sourceName: 'Bharat CSR Portal' },
+  { title: 'State Livelihoods Mission — Producer Collectives', theme: 'Livelihoods', daysAhead: 69, isNew: true, externalGrantId: 3,
+    funderName: 'Department of Rural Development (fictional)', summary: 'Formation and strengthening of farmer producer collectives in dryland districts.',
+    grantMinMinor: 200000000, grantMaxMinor: 5000000000, states: ['KA', 'MH'],
+    eligibilityText: 'Society or Section 8 company, minimum five years of operation, CSR-1 filed.',
+    applyUrl: 'https://notices.example.org/apply/GN-2027-18', sourceUrl: 'https://notices.example.org/GN-2027-18', sourceName: 'Ministry notices (fictional)' },
+  { title: 'Climate-Resilient Farming in the Deccan', theme: 'Climate', daysAhead: 94, isNew: true, externalGrantId: 5,
+    funderName: 'Prithvi Foundation (fictional)', summary: 'Drought-tolerant cropping and water budgeting with smallholder farmers.',
+    grantMinMinor: 500000000, grantMaxMinor: 8000000000, states: ['KA', 'TS', 'MH'],
+    eligibilityText: '12A and 80G, three years of audited accounts, experience in dryland agriculture.',
+    applyUrl: 'https://funders.example.org/apply/FS-9001', sourceUrl: 'https://funders.example.org/FS-9001', sourceName: 'Funder websites (fictional)' },
+].map(g => ({ ...g, origin: 'EXTERNAL', applyHere: false, currencyCode: 'INR' }));
+
 function grantRoute(req: HttpRequest<any>, path: string): Observable<any> | null {
   const b = req.body ?? {};
   const m = (re: RegExp) => path.match(re);
@@ -254,6 +282,42 @@ function grantRoute(req: HttpRequest<any>, path: string): Observable<any> | null
     && tenants.find(t => t.tenantLogin === tenant)?.tenantType !== APP_CONFIG.tenantTypes.granter
     && /^\/api\/v1\/(awards|tranches|tranche-plans|tranche-plan-items|tranche-reports|tranche-report-items)(\/|$)|^\/api\/v1\/applications\/\d+\/award$/.test(path)) {
     return notFound();
+  }
+  // ── Grant marketplace (§8): public cards need no session; signed-in ones add the call id and a match score ──
+  if (path === '/api/v1/public/marketplace/sources') {
+    return okRes([...new Map(EXTERNAL_GRANTS.map(g => [g.sourceName, { sourceName: g.sourceName, sourceUrl: new URL(g.sourceUrl).origin }])).values()]);
+  }
+  if (path === '/api/v1/public/marketplace' || (path === '/api/v1/marketplace' && me)) {
+    const signedIn = path === '/api/v1/marketplace';
+    const now = Date.now();
+    const here = grantCalls.filter(c => c.state === 'PUBLISHED' && (!c.closesAt || c.closesAt > now)).map(c => ({
+      title: c.title, theme: c.theme, closesAt: c.closesAt, origin: 'HERE', applyHere: true, requiresSignIn: true,
+      funderName: 'This funder', summary: c.description, grantMinMinor: c.minAwardMinor, grantMaxMinor: c.maxAwardMinor,
+      currencyCode: c.currencyCode || 'INR', states: [], eligibilityText: c.rulesJson || '{}', isNew: (c.postedAt ?? 0) > now - 7 * DAY,
+      ...(signedIn ? { grantCallId: c.id, matchScore: 60 + ((c.id * 17) % 40) } : {}),
+    }));
+    const all = [...here, ...EXTERNAL_GRANTS.map(g => ({ ...g, closesAt: now + g.daysAhead * DAY }))]
+      .map(({ daysAhead: _d, ...g }: any) => {
+        const daysLeft = g.closesAt ? Math.ceil((g.closesAt - now) / DAY) : undefined;
+        return { ...g, daysLeft, closingSoon: daysLeft != null && daysLeft <= 21 };
+      });
+    const q = param('q').toLowerCase(), theme = param('theme').toLowerCase(), state = param('stateCode').toUpperCase();
+    const scope = param('scope').toUpperCase();
+    const matching = all.filter(g =>
+      (!q || `${g.title} ${g.summary ?? ''} ${g.theme ?? ''} ${g.funderName ?? ''}`.toLowerCase().includes(q))
+      && (!theme || (g.theme ?? '').toLowerCase() === theme)
+      && (!state || (g.states ?? []).some((s: string) => s.toUpperCase() === state || s.toUpperCase() === 'ALL')));
+    const scoped = matching.filter(g => !scope || scope === 'ALL' || g.origin === scope);
+    const sort = param('sort').toUpperCase();
+    scoped.sort((a, b) => sort === 'SIZE' ? (b.grantMaxMinor ?? 0) - (a.grantMaxMinor ?? 0)
+      : sort === 'MATCH' && signedIn ? (b.matchScore ?? 0) - (a.matchScore ?? 0)
+      : (a.closesAt ?? Infinity) - (b.closesAt ?? Infinity));
+    const pg = Number(param('page') || 0), size = Number(param('size') || 20);
+    return okRes({
+      liveTotal: matching.length, applyHereTotal: matching.filter(g => g.origin === 'HERE').length,
+      elsewhereTotal: matching.filter(g => g.origin === 'EXTERNAL').length,
+      totalElements: scoped.length, elements: scoped.slice(pg * size, pg * size + size), signedIn,
+    });
   }
   if (path === '/api/v1/grant-calls') {
     if (req.method === 'POST') {
